@@ -2,21 +2,21 @@
 // Created by robert-grigoryan on 5/27/24.
 //
 
-#include <iostream>
 #include <vector>
 
 #include "Card.h"
 #include "Seat.h"
+#include "Server.h"
 #include "ServerConfig.h"
 
 PlayerHandsConfig getPlayerHandsConfig()
 {
   std::vector<HandConfig> hands;
-  std::vector<Card> hand;
+  std::unordered_set<std::string> hand;
 
-  for (Card::Color color : Card::getAllColors()) {
-    for (Card::Value value : Card::getAllValues()) {
-      hand.emplace_back(value, color);
+  for (const Card::Color color : Card::getAllColors()) {
+    for (const Card::Value value : Card::getAllValues()) {
+      hand.insert(Card(value, color).serialize());
     }
 
     hands.emplace_back(hand);
@@ -27,15 +27,15 @@ PlayerHandsConfig getPlayerHandsConfig()
 }
 
 ServerConfig getServerConfig() {
-  const GameType gameType(GameType::Type::kTricksBad);
+  const DealType dealType(DealType::Type::kTricksBad);
   const Seat firstPlayer(Seat::Position::kN);
-  const GameConfig gameConfig(gameType, firstPlayer, getPlayerHandsConfig());
-  const std::vector games = {gameConfig};
+  const DealConfig dealConfig(dealType, firstPlayer, getPlayerHandsConfig());
+  const std::vector deals = {dealConfig};
   const ServerNetworkingConfig serverNetworkingConfig(std::nullopt, std::nullopt);
-  ServerConfig serverConfig(games, serverNetworkingConfig);
+  ServerConfig serverConfig(deals, serverNetworkingConfig);
   return serverConfig;
 }
 
 int main() {
-  new Server(getServerConfig()).run();
+  Server(getServerConfig(), Logger()).run();
 }

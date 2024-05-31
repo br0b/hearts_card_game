@@ -1,22 +1,24 @@
 //
 // Created by robert-grigoryan on 5/27/24.
 //
-
 #ifndef SEAT_H
 #define SEAT_H
 
 #include <optional>
 #include <ostream>
 #include <unordered_map>
+#include <vector>
 
 class Seat {
  public:
   enum class Position { kN, kE, kS, kW };
 
-  explicit Seat(const Position _position) : position(_position) {}
-  static std::optional<Seat> SeatFromChar(char _pos);
+  [[nodiscard]] Position getPosition() const;
+  [[nodiscard]] char serialize() const;
 
-  [[nodiscard]] char getPositionAsChar() const;
+  static std::optional<Seat> SeatFromChar(char _pos);
+  static std::vector<Seat> getAllSeats();
+  explicit Seat(Position _position);
 
  private:
   Position position;
@@ -27,4 +29,4 @@ class Seat {
 
 std::ostream& operator<<(std::ostream& os, const Seat& seat);
 
-#endif //SEAT_H
+#endif  // SEAT_H

@@ -7,7 +7,7 @@
 
 #include <utility>
 
-#include "GameType.h"
+#include "DealType.h"
 #include "PlayerHandsConfig.h"
 #include "Seat.h"
 
@@ -17,24 +17,24 @@
  * @param gameType Type of the game.
  * @param firstPlayer First player in the first round.
  */
-class GameConfig {
+class DealConfig {
  public:
-  GameConfig(const GameType &_gameType, const Seat _firstPlayer,
+  DealConfig(const DealType &_gameType, const Seat _firstPlayer,
              PlayerHandsConfig _handsConfig)
-      : gameType(_gameType),
+      : dealType(_gameType),
         firstPlayer(_firstPlayer),
         handsConfig(std::move(_handsConfig)) {}
 
-  [[nodiscard]] GameType getGameType() const;
+  [[nodiscard]] DealType getGameType() const;
   [[nodiscard]] Seat getFirstPlayer() const;
   [[nodiscard]] PlayerHandsConfig getPlayerHandsConfig() const;
 
  private:
-  GameType gameType;
+  DealType dealType;
   Seat firstPlayer;
   PlayerHandsConfig handsConfig;
 };
 
-std::ostream &operator<<(std::ostream &os, const GameConfig &config);
+std::ostream &operator<<(std::ostream &os, const DealConfig &config);
 
 #endif  // GAMECONFIG_H

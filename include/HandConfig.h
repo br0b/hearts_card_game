@@ -6,7 +6,7 @@
 #define HANDCONFIG_H
 
 #include <iostream>
-#include <vector>
+#include <unordered_set>
 
 #include "Card.h"
 
@@ -15,11 +15,13 @@
  */
 class HandConfig {
  public:
-  explicit HandConfig(const std::vector<Card> &_cards) : cards(_cards) {}
-  [[nodiscard]] std::vector<Card> getCards() const;
+  [[nodiscard]] std::unordered_set<std::string> getCards() const;
+
+  HandConfig() = default;
+  explicit HandConfig(const std::unordered_set<std::string> &_cards);
 
  private:
-  std::vector<Card> cards;
+  std::unordered_set<std::string> cards;
 };
 
 std::ostream &operator<<(std::ostream &os, const HandConfig &config);

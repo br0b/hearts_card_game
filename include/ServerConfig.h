@@ -7,22 +7,21 @@
 
 #include <iostream>
 
-#include "GameConfig.h"
+#include "DealConfig.h"
 #include "ServerNetworkingConfig.h"
 
 class ServerConfig {
 public:
-  ServerConfig(const std::vector<GameConfig> &_games,
-               const ServerNetworkingConfig &_networkingConfig)
-      : games(_games), networkingConfig(_networkingConfig) {}
+  ServerConfig(const std::vector<DealConfig> &_deals,
+               const ServerNetworkingConfig &_networkingConfig);
 
-  [[nodiscard]] std::vector<GameConfig> getGames() const { return games; }
+  [[nodiscard]] std::vector<DealConfig> getDeals() const { return deals; }
   [[nodiscard]] ServerNetworkingConfig getNetworkingConfig() const {
     return networkingConfig;
   }
 
 private:
-  std::vector<GameConfig> games;
+  std::vector<DealConfig> deals;
   ServerNetworkingConfig networkingConfig;
 };
 

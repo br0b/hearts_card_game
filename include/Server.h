@@ -5,19 +5,24 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <utility>
+#include <memory>
 
+#include "Game.h"
+#include "Logger.h"
 #include "ServerConfig.h"
+
 
 class Server {
  public:
-  explicit Server(ServerConfig _config) : config(std::move(_config)) {}
-  [[noreturn]] void run();
+  explicit Server(const ServerConfig& _config, Logger _logger);
+  int run();
 
  private:
-  ServerConfig config;
+  int setup(ServerNetworkingConfig networking_config);
+
+  Game game;
+  Logger logger;
+  std::vector<DealConfig> dealsToPlay;
 };
 
-
-
-#endif //SERVER_H
+#endif  // SERVER_H

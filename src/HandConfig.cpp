@@ -4,7 +4,10 @@
 
 #include "HandConfig.h"
 
-std::vector<Card> HandConfig::getCards() const{ return cards; }
+HandConfig::HandConfig(const std::unordered_set<std::string> &_cards)
+    : cards(_cards) {}
+
+std::unordered_set<std::string> HandConfig::getCards() const { return cards; }
 
 std::ostream &operator<<(std::ostream &os, const HandConfig &config) {
   os << "HandConfig{cards=[";

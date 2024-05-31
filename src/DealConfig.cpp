@@ -4,21 +4,21 @@
 
 #include <iostream>
 
-#include "GameConfig.h"
+#include "DealConfig.h"
 
-GameType GameConfig::getGameType() const{
-  return gameType;
+DealType DealConfig::getGameType() const{
+  return dealType;
 }
 
-Seat GameConfig::getFirstPlayer() const {
+Seat DealConfig::getFirstPlayer() const {
   return firstPlayer;
 }
 
-PlayerHandsConfig GameConfig::getPlayerHandsConfig() const {
+PlayerHandsConfig DealConfig::getPlayerHandsConfig() const {
   return handsConfig;
 }
 
-std::ostream& operator<< (std::ostream &os, const GameConfig &config) {
+std::ostream& operator<< (std::ostream &os, const DealConfig &config) {
   os << "GameConfig{gameType=" << config.getGameType()
      << ", seat=" << config.getFirstPlayer()
      << ", playerHandsConfig=" << config.getPlayerHandsConfig() << "}";

@@ -2,7 +2,6 @@
 // Created by robert-grigoryan on 5/27/24.
 //
 
-#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -39,6 +38,10 @@ Card::Value Card::getValue() const { return value; }
 
 Card::Color Card::getColor() const { return color; }
 
+std::string Card::serialize() const {
+  return getStringFromValue(value) + getCharFromColor(color);
+}
+
 std::optional<Card::Value> Card::getValueFromString(const std::string &value) {
   if (stringToValue.contains(value)) {
     return stringToValue[value];
@@ -73,7 +76,6 @@ std::vector<Card::Value> Card::getAllValues() {
 }
 
 std::ostream &operator<<(std::ostream &os, const Card &card) {
-  os << Card::getStringFromValue(card.getValue())
-     << Card::getCharFromColor(card.getColor());
+  os << card.serialize();
   return os;
 }

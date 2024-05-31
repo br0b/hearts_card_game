@@ -8,8 +8,9 @@
 #include <optional>
 #include <ostream>
 #include <unordered_map>
+#include <vector>
 
-class GameType {
+class DealType {
  public:
   enum class Type {
     kTricksBad = 1,
@@ -21,11 +22,12 @@ class GameType {
     kRobber = 7
   };
 
-  explicit GameType(const Type _type) : type(_type) {}
-  static std::optional<GameType> GameTypeFromChar(char _type);
+  explicit DealType(const Type _type) : type(_type) {}
+  static std::optional<DealType> GameTypeFromChar(char _type);
+  static std::vector<DealType> getAllTypes();
 
   [[nodiscard]] Type getType() const;
-  [[nodiscard]] char getTypeAsChar() const;
+  [[nodiscard]] char serialize() const;
 
  private:
   Type type;
@@ -34,6 +36,6 @@ class GameType {
   static std::unordered_map<Type, char> typeToChar;
 };
 
-std::ostream& operator<<(std::ostream& os, const GameType& gameType);
+std::ostream& operator<<(std::ostream& os, const DealType& gameType);
 
 #endif //GAMETYPE_H
