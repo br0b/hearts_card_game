@@ -12,6 +12,8 @@ class Port {
   explicit Port(const std::optional<uint16_t> _port) : port(_port) {}
   [[nodiscard]] std::optional<uint16_t> getPort() const;
 
+  [[nodiscard]] std::string toString() const;
+
  private:
   std::optional<uint16_t> port;
 };

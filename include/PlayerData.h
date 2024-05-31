@@ -11,7 +11,8 @@
 class PlayerData {
  public:
   [[nodiscard]] bool hasCard(const Card &card) const;
-  void playNewDeal(const HandConfig &config);
+  [[nodiscard]] bool hasColor(Card::Color color) const;
+  std::optional<Error> playNewDeal(const HandConfig &config);
   std::optional<Error> takeCard(const Card &card);
 
   [[nodiscard]] int getScore() const;
@@ -21,7 +22,9 @@ class PlayerData {
   PlayerData();
 
  private:
-  std::unordered_set<std::string> hand;
+  void clearHand();
+
+  std::unordered_map<Card::Color, std::unordered_set<std::string>> hand;
   int score;
   int total;
 };

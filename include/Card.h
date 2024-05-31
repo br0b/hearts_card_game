@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <variant>
+
+#include "Error.h"
 
 class Card {
  public:
@@ -32,6 +35,7 @@ class Card {
   enum class Color { kClub, kDiamond, kHeart, kSpade };
 
   Card(const Value _value, const Color _color) : value(_value), color(_color) {}
+  static std::variant<Card, Error> FromString(const std::string& str);
 
   [[nodiscard]] Value getValue() const;
   [[nodiscard]] Color getColor() const;

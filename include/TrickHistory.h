@@ -21,6 +21,7 @@ class TrickHistory {
 
   [[nodiscard]] std::variant<bool, Error> isDealFinished(
       DealType dealType) const;
+  [[nodiscard]] std::optional<Card::Color> getLeadingColor() const;
   [[nodiscard]] std::variant<Seat, Error> getTrickTaker() const;
   [[nodiscard]] std::variant<std::unordered_map<char, int>, Error> getPoints(
       DealType dealType) const;

@@ -34,6 +34,17 @@ std::unordered_map<Card::Color, char> Card::colorToChar = {
     {Color::kHeart, 'H'},
     {Color::kSpade, 'S'}};
 
+std::variant<Card, Error> Card::FromString(const std::string& str) {
+  const std::optional<Value> value = getValueFromString(str.substr(0, str.size() - 1));
+  const std::optional<Color> color = getColorFromChar(str[str.size() - 1]);
+
+  if (!value.has_value() || !color.has_value()) {
+    return Error(str + " is an invalid card encoding.");
+  }
+
+  return Card(value.value(), color.value());
+}
+
 Card::Value Card::getValue() const { return value; }
 
 Card::Color Card::getColor() const { return color; }

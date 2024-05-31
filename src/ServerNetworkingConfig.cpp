@@ -3,12 +3,19 @@
 //
 #include "ServerNetworkingConfig.h"
 
-Port ServerNetworkingConfig::getPort() const {
-  return port;
-}
+const int ServerNetworkingConfig::kDefaultTimeout = 5;
 
-int ServerNetworkingConfig::getTimeout() const {
-  return timeout;
+ServerNetworkingConfig::ServerNetworkingConfig(
+    const std::optional<uint16_t> _port, const std::optional<int> _timeout)
+    : port(_port), timeout(_timeout.value_or(5)) {}
+
+Port ServerNetworkingConfig::getPort() const { return port; }
+
+int ServerNetworkingConfig::getTimeout() const { return timeout; }
+
+std::string ServerNetworkingConfig::toString() const {
+  return "ServerNetworkingConfig{port=" + port.toString() +
+         ", timeout=" + std::to_string(timeout) + "}";
 }
 
 std::ostream &operator<<(std::ostream &os,

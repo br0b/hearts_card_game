@@ -46,7 +46,7 @@ void TrickHistory::push(const Seat seat, const Card card) {
   history.back().placeCard(seat, card);
 }
 
-bool TrickHistory::isTrickFinished() const{
+bool TrickHistory::isTrickFinished() const {
   return _isTrickFinished(history);
 }
 
@@ -61,6 +61,13 @@ std::variant<bool, Error> TrickHistory::isDealFinished(
   }
 
   return dealFinishedFunctions.at(dealType.serialize())(history);
+}
+std::optional<Card::Color> TrickHistory::getLeadingColor() const {
+  if (!history.empty() && !isTrickFinished()) {
+    return history.back().getCards()[0].getColor();
+  }
+
+  return std::nullopt;
 }
 
 std::variant<Seat, Error> TrickHistory::getTrickTaker() const {

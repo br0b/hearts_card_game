@@ -17,6 +17,7 @@ class PlayersManager {
   void playNewDeal(const PlayerHandsConfig& config);
 
   [[nodiscard]] bool hasCard(Seat seat, const Card& card) const;
+  [[nodiscard]] bool hasColor(Seat seat, Card::Color color) const;
   std::optional<Error> takeCard(Seat seat, const Card& card);
 
   [[nodiscard]] int getScore(Seat seat) const;

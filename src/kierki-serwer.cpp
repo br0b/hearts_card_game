@@ -37,5 +37,5 @@ ServerConfig getServerConfig() {
 }
 
 int main() {
-  Server(getServerConfig(), Logger()).run();
+  Server(getServerConfig()).run();
 }

@@ -17,6 +17,10 @@ bool PlayersManager::hasCard(const Seat seat, const Card& card) const {
   return players.at(seat.serialize()).hasCard(card);
 }
 
+bool PlayersManager::hasColor(const Seat seat, Card::Color color) const{
+  return players.at(seat.serialize()).hasColor(color);
+}
+
 std::optional<Error> PlayersManager::takeCard(const Seat seat,
                                               const Card& card) {
   return players.at(seat.serialize()).takeCard(card);

@@ -21,11 +21,9 @@ set(SOURCES
         src/PlayerData.cpp
         src/Game.cpp
         src/TrickHistory.cpp
-        include/TrickHistory.h
         src/Error.cpp
-        include/Error.h
         src/Trick.cpp
-        include/Trick.h
+        src/Connection.cpp
 )
 
 add_executable(kierki-serwer src/kierki-serwer.cpp ${SOURCES})

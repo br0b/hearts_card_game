@@ -8,10 +8,10 @@ std::optional<uint16_t> Port::getPort() const {
   return port;
 }
 
-std::ostream &operator<<(std::ostream &os, const Port &port) {
-  if (port.getPort().has_value()) {
-    return os << port.getPort().value();
-  }
+std::string Port::toString() const{
+  return port.has_value() ? std::to_string(port.value()) : "auto";
+}
 
-  return os << "auto";
+std::ostream &operator<<(std::ostream &os, const Port &port) {
+  return os << port.toString();
 }

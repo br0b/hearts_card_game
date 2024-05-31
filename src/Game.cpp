@@ -23,6 +23,12 @@ std::optional<Error> Game::playCard(const Card& card) {
     return Error("The deal is already finished.");
   }
 
+  if (const std::optional<Card::Color> leadingColor = history.getLeadingColor();
+      leadingColor.has_value() && card.getColor() != leadingColor &&
+      playersManager.hasColor(currentTurn, leadingColor.value())) {
+    return Error("A player must follow the leading color.");
+  }
+
   if (std::optional<Error> error = playersManager.takeCard(currentTurn, card);
       error.has_value()) {
     return error;
