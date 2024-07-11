@@ -6,14 +6,15 @@
 #define GAME_H
 #include <PlayersManager.h>
 
-#include "TrickHistory.h"
+#include "DealConfig.h"
 #include "DealType.h"
+#include "TrickHistory.h"
 
 class Game {
  public:
   Seat getCurrentTurn() const;
-  void playNewDeal(const PlayerHandsConfig& config, const DealType& _dealType,
-                   const Seat& firstTurn);
+  int getCurrentTrickNumber() const;
+  void playNewDeal(const DealConfig& dealConfig);
   std::optional<Error> playCard(const Card& card);
   bool isCurrentTrickFinished() const;
   bool isCurrentDealFinished() const;
@@ -30,7 +31,7 @@ class Game {
   bool isDealFinished;
   TrickHistory history;
 
-  static const std::unordered_map<char, Seat> turnProgression;
+  static const std::unordered_map<Seat::Position, Seat> turnProgression;
 };
 
 #endif  // GAME_H

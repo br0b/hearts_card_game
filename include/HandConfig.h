@@ -1,7 +1,6 @@
 //
 // Created by robert-grigoryan on 5/27/24.
 //
-
 #ifndef HANDCONFIG_H
 #define HANDCONFIG_H
 
@@ -15,13 +14,13 @@
  */
 class HandConfig {
  public:
-  [[nodiscard]] std::unordered_set<std::string> getCards() const;
+  [[nodiscard]] std::vector<Card> getCards() const;
+  [[nodiscard]] std::string serialize() const;
 
-  HandConfig() = default;
-  explicit HandConfig(const std::unordered_set<std::string> &_cards);
+  explicit HandConfig(const std::vector<Card> &_cards);
 
  private:
-  std::unordered_set<std::string> cards;
+  std::vector<Card> cards;
 };
 
 std::ostream &operator<<(std::ostream &os, const HandConfig &config);

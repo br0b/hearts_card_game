@@ -14,7 +14,8 @@ class Seat {
   enum class Position { kN, kE, kS, kW };
 
   [[nodiscard]] Position getPosition() const;
-  [[nodiscard]] char serialize() const;
+  [[nodiscard]] std::string serialize() const;
+  [[nodiscard]] int getRank() const;
 
   static std::optional<Seat> SeatFromChar(char _pos);
   static std::vector<Seat> getAllSeats();
@@ -25,6 +26,8 @@ class Seat {
 
   static std::unordered_map<char, Position> charToPosition;
   static std::unordered_map<Position, char> positionToChar;
+  // Map Positions to numbers. Used for pollfds indexing.
+  static std::unordered_map<Position, int> positionToRank;
 };
 
 std::ostream& operator<<(std::ostream& os, const Seat& seat);

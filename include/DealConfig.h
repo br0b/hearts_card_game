@@ -19,22 +19,24 @@
  */
 class DealConfig {
  public:
-  DealConfig(const DealType &_gameType, const Seat _firstPlayer,
+  DealConfig(const DealType &_gameType, const Seat::Position _firstPlayer,
              PlayerHandsConfig _handsConfig)
       : dealType(_gameType),
         firstPlayer(_firstPlayer),
         handsConfig(std::move(_handsConfig)) {}
 
-  [[nodiscard]] DealType getGameType() const;
-  [[nodiscard]] Seat getFirstPlayer() const;
-  [[nodiscard]] PlayerHandsConfig getPlayerHandsConfig() const;
+  [[nodiscard]] DealType getDealType() const;
+  [[nodiscard]] Seat::Position getFirstPlayer() const;
+
+  [[nodiscard]] HandConfig getHandConfig(Seat::Position player) const;
+  [[nodiscard]] PlayerHandsConfig getHandsConfig() const;
+
+  friend std::ostream& operator<<(std::ostream &os, const DealConfig &config);
 
  private:
   DealType dealType;
-  Seat firstPlayer;
+  Seat::Position firstPlayer;
   PlayerHandsConfig handsConfig;
 };
-
-std::ostream &operator<<(std::ostream &os, const DealConfig &config);
 
 #endif  // GAMECONFIG_H

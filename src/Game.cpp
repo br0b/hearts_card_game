@@ -1,7 +1,6 @@
 //
 // Created by robert-grigoryan on 5/31/24.
 //
-
 #include <variant>
 
 #include "Error.h"
@@ -9,11 +8,14 @@
 
 Seat Game::getCurrentTurn() const { return currentTurn; }
 
-void Game::playNewDeal(const PlayerHandsConfig& config,
-                       const DealType& _dealType, const Seat& firstTurn) {
-  playersManager.playNewDeal(config);
-  currentTurn = firstTurn;
-  dealType = _dealType;
+int Game::getCurrentTrickNumber() const {
+  return history.getCurrentTrickNumber();
+}
+
+void Game::playNewDeal(const DealConfig& dealConfig) {
+  playersManager.playNewDeal(dealConfig.getHandsConfig());
+  currentTurn = Seat(dealConfig.getFirstPlayer());
+  dealType = dealConfig.getDealType();
   isDealFinished = false;
   history.clear();
 }
@@ -67,29 +69,25 @@ std::optional<Error> Game::setNextPlayer() {
     }
     currentTurn = std::get<Seat>(tmp);
   } else {
-    const char tmp = currentTurn.serialize();
-    if (!turnProgression.contains(tmp)) {
-      return Error("The provided seat is not supported in turn progression.");
-    }
-    currentTurn = turnProgression.at(tmp);
+    currentTurn = turnProgression.at(currentTurn.getPosition());
   }
 
   return std::nullopt;
 }
 
 std::optional<Error> Game::distributePoints() {
-  std::variant<std::unordered_map<char, int>, Error> points =
+  std::variant<std::unordered_map<Seat::Position, int>, Error> points =
       history.getPoints(dealType);
   if (std::holds_alternative<Error>(points)) {
     return std::get<Error>(points);
   }
   return playersManager.distributePoints(
-      std::get<std::unordered_map<char, int>>(points));
+      std::get<std::unordered_map<Seat::Position, int>>(points));
 }
 
-const std::unordered_map<char, Seat> Game::turnProgression = {
-    {'N', Seat(Seat::Position::kE)},
-    {'E', Seat(Seat::Position::kS)},
-    {'S', Seat(Seat::Position::kW)},
-    {'W', Seat(Seat::Position::kN)},
+const std::unordered_map<Seat::Position, Seat> Game::turnProgression = {
+    {Seat::Position::kN, Seat(Seat::Position::kE)},
+    {Seat::Position::kE, Seat(Seat::Position::kS)},
+    {Seat::Position::kS, Seat(Seat::Position::kW)},
+    {Seat::Position::kW, Seat(Seat::Position::kN)},
 };

@@ -5,7 +5,7 @@
 #include "PlayerData.h"
 
 bool PlayerData::hasCard(const Card& card) const {
-  return hand.at(card.getColor()).contains(card.serialize());
+  return hand.at(card.getColor()).contains(card);
 }
 
 bool PlayerData::hasColor(const Card::Color color) const{
@@ -15,14 +15,8 @@ bool PlayerData::hasColor(const Card::Color color) const{
 std::optional<Error> PlayerData::playNewDeal(const HandConfig& config) {
   clearHand();
 
-  for (const std::string& cardStr : config.getCards()) {
-    std::variant<Card, Error> _card = Card::FromString(cardStr);
-    if (std::holds_alternative<Error>(_card)) {
-      clearHand();
-      return std::get<Error>(_card);
-    }
-    Card card = std::get<Card>(_card);
-    hand.at(card.getColor()).emplace(cardStr);
+  for (Card card: config.getCards()) {
+    hand.at(card.getColor()).emplace(card);
   }
 
   score = 0;
@@ -31,8 +25,8 @@ std::optional<Error> PlayerData::playNewDeal(const HandConfig& config) {
 }
 
 std::optional<Error> PlayerData::takeCard(const Card& card) {
-  if (hand.at(card.getColor()).contains(card.serialize())) {
-    hand.at(card.getColor()).erase(card.serialize());
+  if (hand.at(card.getColor()).contains(card)) {
+    hand.at(card.getColor()).erase(card);
     return std::nullopt;
   }
 
@@ -54,7 +48,7 @@ void PlayerData::givePoints(int points) {
 
 PlayerData::PlayerData() : score(0), total(0) {
   for (Card::Color color : Card::getAllColors()) {
-    hand.emplace(color, std::unordered_set<std::string>());
+    hand.emplace(color, std::unordered_set<Card>());
   }
 }
 

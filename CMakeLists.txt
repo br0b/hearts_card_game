@@ -14,7 +14,7 @@ set(SOURCES
         src/Card.cpp
         src/Seat.cpp
         src/DealType.cpp
-        src/Port.cpp
+        src/PortConfig.cpp
         src/Server.cpp
         src/PlayersManager.cpp
         src/Logger.cpp
@@ -24,7 +24,17 @@ set(SOURCES
         src/Error.cpp
         src/Trick.cpp
         src/Connection.cpp
+        src/ConnectionInfo.cpp
+        src/ErrorCritical.cpp
+        src/Message.cpp
+        src/MessageIAM.cpp
+        src/MessageBUSY.cpp
+        src/MessageDEAL.cpp
+        src/Utilities.cpp
+        src/MessageTrick.cpp
 )
 
 add_executable(kierki-serwer src/kierki-serwer.cpp ${SOURCES})
-add_executable(kierki-klient src/kierki-klient.cpp ${SOURCES})
+add_executable(kierki-klient src/kierki-klient.cpp ${SOURCES}
+        src/MessageDEAL.cpp
+        include/MessageDEAL.h)

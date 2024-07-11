@@ -21,11 +21,15 @@ class TrickHistory {
 
   [[nodiscard]] std::variant<bool, Error> isDealFinished(
       DealType dealType) const;
+  [[nodiscard]] int getCurrentTrickNumber() const;
+  [[nodiscard]] Trick getCurrentTrick() const;
   [[nodiscard]] std::optional<Card::Color> getLeadingColor() const;
   [[nodiscard]] std::variant<Seat, Error> getTrickTaker() const;
-  [[nodiscard]] std::variant<std::unordered_map<char, int>, Error> getPoints(
-      DealType dealType) const;
+  [[nodiscard]] std::variant<std::unordered_map<Seat::Position, int>, Error>
+  getPoints(DealType dealType) const;
   void clear();
+
+  TrickHistory();
 
  private:
   std::vector<Trick> history;
@@ -40,28 +44,28 @@ class TrickHistory {
       const std::vector<Trick>& tricks);
   static bool isDealFinishedRobber(const std::vector<Trick>& tricks);
 
-  static std::unordered_map<char, int> pointDistributionTricksBad(
+  static std::unordered_map<Seat::Position, int> pointDistributionTricksBad(
       const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionHeartsBad(
+  static std::unordered_map<Seat::Position, int> pointDistributionHeartsBad(
       const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionQueensBad(
+  static std::unordered_map<Seat::Position, int> pointDistributionQueensBad(
       const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionGentlemenBad(
+  static std::unordered_map<Seat::Position, int> pointDistributionGentlemenBad(
       const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionKingOfHeartsBad(
-      const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionSeventhAndLastTrickBad(
-      const std::vector<Trick>& tricks);
-  static std::unordered_map<char, int> pointDistributionRobber(
+  static std::unordered_map<Seat::Position, int>
+  pointDistributionKingOfHeartsBad(const std::vector<Trick>& tricks);
+  static std::unordered_map<Seat::Position, int>
+  pointDistributionSeventhAndLastTrickBad(const std::vector<Trick>& tricks);
+  static std::unordered_map<Seat::Position, int> pointDistributionRobber(
       const std::vector<Trick>& tricks);
 
   static std::unordered_map<int, std::function<bool(std::vector<Trick>)>>
       dealFinishedFunctions;
-  static std::unordered_map<
-      int, std::function<std::unordered_map<char, int>(std::vector<Trick>)>>
+  static std::unordered_map<int, std::function<std::unordered_map<
+                                     Seat::Position, int>(std::vector<Trick>)>>
       pointDistributionFunctions;
 
-  static std::unordered_map<char, int> getEmptyPointDistribution();
+  static std::unordered_map<Seat::Position, int> getEmptyPointDistribution();
 };
 
 #endif  // TRICKHISTORY_H

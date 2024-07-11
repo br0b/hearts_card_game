@@ -1,6 +1,8 @@
 //
 // Created by robert-grigoryan on 5/31/24.
 //
+#include <iomanip>
+
 #include "Trick.h"
 
 void Trick::placeCard(const Seat& seat, const Card& card) {
@@ -30,3 +32,10 @@ std::vector<Card> Trick::getCards() const{
   return cards;
 }
 
+std::string Trick::serialize() const {
+  std::ostringstream os;
+  for (const Card& card : cards) {
+    os << card.serialize();
+  }
+  return os.str();
+}

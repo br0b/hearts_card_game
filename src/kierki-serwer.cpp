@@ -1,6 +1,7 @@
 //
 // Created by robert-grigoryan on 5/27/24.
 //
+#include <Logger.h>
 
 #include <vector>
 
@@ -9,14 +10,13 @@
 #include "Server.h"
 #include "ServerConfig.h"
 
-PlayerHandsConfig getPlayerHandsConfig()
-{
+PlayerHandsConfig getPlayerHandsConfig() {
   std::vector<HandConfig> hands;
-  std::unordered_set<std::string> hand;
+  std::vector<Card> hand;
 
   for (const Card::Color color : Card::getAllColors()) {
     for (const Card::Value value : Card::getAllValues()) {
-      hand.insert(Card(value, color).serialize());
+      hand.emplace_back(value, color);
     }
 
     hands.emplace_back(hand);
@@ -28,14 +28,28 @@ PlayerHandsConfig getPlayerHandsConfig()
 
 ServerConfig getServerConfig() {
   const DealType dealType(DealType::Type::kTricksBad);
-  const Seat firstPlayer(Seat::Position::kN);
+  constexpr auto firstPlayer = Seat::Position::kN;
   const DealConfig dealConfig(dealType, firstPlayer, getPlayerHandsConfig());
   const std::vector deals = {dealConfig};
-  const ServerNetworkingConfig serverNetworkingConfig(std::nullopt, std::nullopt);
+  const ServerNetworkingConfig serverNetworkingConfig(42000, 1000000);
   ServerConfig serverConfig(deals, serverNetworkingConfig);
   return serverConfig;
 }
 
 int main() {
-  Server(getServerConfig()).run();
+  std::variant<std::unique_ptr<Server>, Error> server =
+      Server::Create(getServerConfig());
+  if (std::holds_alternative<Error>(server)) {
+    Logger::log(std::get<Error>(server).getMessage());
+    return 1;
+  }
+
+  if (const std::optional<Error> ret =
+          std::get<std::unique_ptr<Server>>(server)->run();
+      ret.has_value()) {
+    Logger::log(ret.value().getMessage());
+    return 1;
+  }
+
+  return 0;
 }

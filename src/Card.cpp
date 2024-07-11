@@ -1,7 +1,6 @@
 //
 // Created by robert-grigoryan on 5/27/24.
 //
-
 #include <optional>
 #include <string>
 #include <vector>
@@ -84,6 +83,10 @@ std::vector<Card::Value> Card::getAllValues() {
           Value::kSix, Value::kSeven, Value::kEight, Value::kNine,
           Value::kTen, Value::kJack,  Value::kQueen, Value::kKing,
           Value::kAce};
+}
+
+bool Card::operator==(const Card& other) const {
+  return value == other.value && color == other.color;
 }
 
 std::ostream &operator<<(std::ostream &os, const Card &card) {

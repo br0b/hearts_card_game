@@ -24,7 +24,7 @@ class PlayerData {
  private:
   void clearHand();
 
-  std::unordered_map<Card::Color, std::unordered_set<std::string>> hand;
+  std::unordered_map<Card::Color, std::unordered_set<Card>> hand;
   int score;
   int total;
 };

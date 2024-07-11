@@ -1,7 +1,6 @@
 //
 // Created by robert-grigoryan on 5/31/24.
 //
-
 #ifndef TRICK_H
 #define TRICK_H
 
@@ -14,6 +13,7 @@ class Trick {
   [[nodiscard]] bool isFinished() const;
   [[nodiscard]] Seat getTaker() const;
   [[nodiscard]] std::vector<Card> getCards() const;
+  [[nodiscard]] std::string serialize() const;
 
  private:
   std::vector<Card> cards;

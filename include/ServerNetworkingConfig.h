@@ -6,20 +6,21 @@
 #include <cstdint>
 #include <optional>
 
-#include "Port.h"
+#include "PortConfig.h"
 
 class ServerNetworkingConfig {
  public:
+  // Timeout in seconds.
   explicit ServerNetworkingConfig(std::optional<uint16_t> _port,
                                   std::optional<int> _timeout);
-  [[nodiscard]] Port getPort() const;
+  [[nodiscard]] PortConfig getPortConfig() const;
   [[nodiscard]] int getTimeout() const;
 
   [[nodiscard]] std::string toString() const;
 
  private:
   static const int kDefaultTimeout;
-  Port port;
+  PortConfig port;
   int timeout;
 };
 

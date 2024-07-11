@@ -3,14 +3,14 @@
 //
 #ifndef PLAYERHANDSMANAGER_H
 #define PLAYERHANDSMANAGER_H
-#include <Card.h>
-#include <PlayerData.h>
-#include <PlayerHandsConfig.h>
-#include <Seat.h>
+#include "Card.h"
+#include "PlayerHandsConfig.h"
+#include "Seat.h"
 
 #include <unordered_map>
 
 #include "Error.h"
+#include "PlayerData.h"
 
 class PlayersManager {
  public:
@@ -23,12 +23,12 @@ class PlayersManager {
   [[nodiscard]] int getScore(Seat seat) const;
   [[nodiscard]] int getTotal(Seat seat) const;
   [[nodiscard]] std::optional<Error> distributePoints(
-      const std::unordered_map<char, int>& points);
+      const std::unordered_map<Seat::Position, int>& points);
 
   PlayersManager();
 
  private:
-  std::unordered_map<char, PlayerData> players;
+  std::unordered_map<Seat::Position, PlayerData> players;
 };
 
 #endif  // PLAYERHANDSMANAGER_H

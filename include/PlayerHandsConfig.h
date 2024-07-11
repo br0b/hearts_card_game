@@ -15,10 +15,10 @@ class PlayerHandsConfig {
   PlayerHandsConfig(HandConfig handN, HandConfig handE, HandConfig handS,
                     HandConfig handW);
 
-  [[nodiscard]] HandConfig getHandConfig(Seat player) const;
+  [[nodiscard]] HandConfig getHandConfig(Seat::Position player) const;
 
  private:
-  std::unordered_map<char, HandConfig> hands;
+  std::unordered_map<Seat::Position, HandConfig> hands;
 };
 
 std::ostream &operator<<(std::ostream &os, const PlayerHandsConfig &config);

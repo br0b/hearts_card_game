@@ -9,7 +9,7 @@ ServerNetworkingConfig::ServerNetworkingConfig(
     const std::optional<uint16_t> _port, const std::optional<int> _timeout)
     : port(_port), timeout(_timeout.value_or(5)) {}
 
-Port ServerNetworkingConfig::getPort() const { return port; }
+PortConfig ServerNetworkingConfig::getPortConfig() const { return port; }
 
 int ServerNetworkingConfig::getTimeout() const { return timeout; }
 
@@ -20,6 +20,6 @@ std::string ServerNetworkingConfig::toString() const {
 
 std::ostream &operator<<(std::ostream &os,
                          const ServerNetworkingConfig &config) {
-  return os << "ServerNetworkingConfig{port=" << config.getPort()
+  return os << "ServerNetworkingConfig{port=" << config.getPortConfig()
             << ", timeout=" << config.getTimeout() << "}";
 }

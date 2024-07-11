@@ -7,9 +7,9 @@
 #include <optional>
 #include <ostream>
 
-class Port {
+class PortConfig {
  public:
-  explicit Port(const std::optional<uint16_t> _port) : port(_port) {}
+  explicit PortConfig(const std::optional<uint16_t> _port) : port(_port) {}
   [[nodiscard]] std::optional<uint16_t> getPort() const;
 
   [[nodiscard]] std::string toString() const;
@@ -18,6 +18,6 @@ class Port {
   std::optional<uint16_t> port;
 };
 
-std::ostream &operator<<(std::ostream &os, const Port &port);
+std::ostream &operator<<(std::ostream &os, const PortConfig &port);
 
 #endif //PORT_H

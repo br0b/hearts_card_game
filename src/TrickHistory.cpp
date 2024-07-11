@@ -17,11 +17,10 @@ std::unordered_map<int, std::function<bool(std::vector<Trick>)>>
          isDealFinishedKingOfHeartsBad},
         {DealType(DealType::Type::kSeventhAndLastTrickBad).serialize(),
          isDealFinishedSeventhAndLastTrickBad},
-        {DealType(DealType::Type::kRobber).serialize(),
-         isDealFinishedRobber}};
+        {DealType(DealType::Type::kRobber).serialize(), isDealFinishedRobber}};
 
-std::unordered_map<
-    int, std::function<std::unordered_map<char, int>(std::vector<Trick>)>>
+std::unordered_map<int, std::function<std::unordered_map<Seat::Position, int>(
+                            std::vector<Trick>)>>
     TrickHistory::pointDistributionFunctions = {
         {DealType(DealType::Type::kTricksBad).serialize(),
          pointDistributionTricksBad},
@@ -46,12 +45,10 @@ void TrickHistory::push(const Seat seat, const Card card) {
   history.back().placeCard(seat, card);
 }
 
-bool TrickHistory::isTrickFinished() const {
-  return _isTrickFinished(history);
-}
+bool TrickHistory::isTrickFinished() const { return _isTrickFinished(history); }
 
 bool TrickHistory::_isTrickFinished(const std::vector<Trick>& history) {
-  return !history.empty() && history.back().isFinished();
+  return history.back().isFinished();
 }
 
 std::variant<bool, Error> TrickHistory::isDealFinished(
@@ -62,6 +59,15 @@ std::variant<bool, Error> TrickHistory::isDealFinished(
 
   return dealFinishedFunctions.at(dealType.serialize())(history);
 }
+
+int TrickHistory::getCurrentTrickNumber() const {
+  return static_cast<int>(history.size());
+}
+
+Trick TrickHistory::getCurrentTrick() const {
+  return history.back();
+}
+
 std::optional<Card::Color> TrickHistory::getLeadingColor() const {
   if (!history.empty() && !isTrickFinished()) {
     return history.back().getCards()[0].getColor();
@@ -78,8 +84,8 @@ std::variant<Seat, Error> TrickHistory::getTrickTaker() const {
   return history.back().getTaker();
 }
 
-std::variant<std::unordered_map<char, int>, Error> TrickHistory::getPoints(
-    const DealType dealType) const {
+std::variant<std::unordered_map<Seat::Position, int>, Error>
+TrickHistory::getPoints(const DealType dealType) const {
   if (!pointDistributionFunctions.contains(dealType.serialize())) {
     return Error("The provided deal type is not supported.");
   }
@@ -88,6 +94,8 @@ std::variant<std::unordered_map<char, int>, Error> TrickHistory::getPoints(
 }
 
 void TrickHistory::clear() { history.clear(); }
+
+TrickHistory::TrickHistory() : history({Trick()}) {}
 
 bool TrickHistory::isDealFinishedTricksBad(const std::vector<Trick>& tricks) {
   return _isTrickFinished(tricks) && tricks.size() == 13;
@@ -173,25 +181,25 @@ bool TrickHistory::isDealFinishedRobber(const std::vector<Trick>& tricks) {
   return isDealFinishedTricksBad(tricks);
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionTricksBad(
-    const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+std::unordered_map<Seat::Position, int>
+TrickHistory::pointDistributionTricksBad(const std::vector<Trick>& tricks) {
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
   for (const Trick& trick : tricks) {
-    points.at(trick.getTaker().serialize())++;
+    points.at(trick.getTaker().getPosition())++;
   }
 
   return points;
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionHeartsBad(
-    const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+std::unordered_map<Seat::Position, int>
+TrickHistory::pointDistributionHeartsBad(const std::vector<Trick>& tricks) {
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
   for (const Trick& trick : tricks) {
-    for (const Card& card : trick.getCards()) {
-      char taker = trick.getTaker().serialize();
+    Seat::Position taker = trick.getTaker().getPosition();
 
+    for (const Card& card : trick.getCards()) {
       if (card.getColor() == Card::Color::kHeart) {
         points.at(taker)++;
       }
@@ -201,16 +209,15 @@ std::unordered_map<char, int> TrickHistory::pointDistributionHeartsBad(
   return points;
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionQueensBad(
-    const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+std::unordered_map<Seat::Position, int>
+TrickHistory::pointDistributionQueensBad(const std::vector<Trick>& tricks) {
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
   for (const Trick& trick : tricks) {
+    Seat::Position taker = trick.getTaker().getPosition();
     for (const Card& card : trick.getCards()) {
-      char taker = trick.getTaker().serialize();
-
       if (card.getValue() == Card::Value::kQueen) {
-        points.at(taker)++;
+        points.at(taker) += 5;
       }
     }
   }
@@ -218,17 +225,16 @@ std::unordered_map<char, int> TrickHistory::pointDistributionQueensBad(
   return points;
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionGentlemenBad(
-    const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+std::unordered_map<Seat::Position, int>
+TrickHistory::pointDistributionGentlemenBad(const std::vector<Trick>& tricks) {
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
   for (const Trick& trick : tricks) {
+    Seat::Position taker = trick.getTaker().getPosition();
     for (const Card& card : trick.getCards()) {
-      char taker = trick.getTaker().serialize();
-
       if (card.getValue() == Card::Value::kJack ||
           card.getValue() == Card::Value::kKing) {
-        points.at(taker)++;
+        points.at(taker) += 2;
       }
     }
   }
@@ -236,17 +242,17 @@ std::unordered_map<char, int> TrickHistory::pointDistributionGentlemenBad(
   return points;
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionKingOfHeartsBad(
+std::unordered_map<Seat::Position, int>
+TrickHistory::pointDistributionKingOfHeartsBad(
     const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
   for (const Trick& trick : tricks) {
+    Seat::Position taker = trick.getTaker().getPosition();
     for (const Card& card : trick.getCards()) {
-      char taker = trick.getTaker().serialize();
-
       if (card.getValue() == Card::Value::kKing &&
           card.getColor() == Card::Color::kHeart) {
-        points.at(taker)++;
+        points.at(taker) += 18;
       }
     }
   }
@@ -254,20 +260,21 @@ std::unordered_map<char, int> TrickHistory::pointDistributionKingOfHeartsBad(
   return points;
 }
 
-std::unordered_map<char, int>
+std::unordered_map<Seat::Position, int>
 TrickHistory::pointDistributionSeventhAndLastTrickBad(
     const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> points = getEmptyPointDistribution();
+  std::unordered_map<Seat::Position, int> points = getEmptyPointDistribution();
 
-  points.at(tricks[6].getTaker().serialize()) = 1;
-  points.at(tricks.back().getTaker().serialize()) = 1;
+  points.at(tricks[6].getTaker().getPosition()) = 1;
+  points.at(tricks.back().getTaker().getPosition()) = 1;
 
   return points;
 }
 
-std::unordered_map<char, int> TrickHistory::pointDistributionRobber(
+std::unordered_map<Seat::Position, int> TrickHistory::pointDistributionRobber(
     const std::vector<Trick>& tricks) {
-  std::unordered_map<char, int> distribution = getEmptyPointDistribution();
+  std::unordered_map<Seat::Position, int> distribution =
+      getEmptyPointDistribution();
   std::vector<DealType> tmp = DealType::getAllTypes();
   std::vector<DealType> dealtypes;
   std::copy_if(tmp.begin(), tmp.end(), std::back_inserter(dealtypes),
@@ -285,6 +292,11 @@ std::unordered_map<char, int> TrickHistory::pointDistributionRobber(
   return distribution;
 }
 
-std::unordered_map<char, int> TrickHistory::getEmptyPointDistribution() {
-  return {{'N', 0}, {'E', 0}, {'S', 0}, {'W', 0}};
+std::unordered_map<Seat::Position, int>
+TrickHistory::getEmptyPointDistribution() {
+  std::unordered_map<Seat::Position, int> dist;
+  for (Seat seat : Seat::getAllSeats()) {
+    dist.emplace(seat.getPosition(), 0);
+  }
+  return dist;
 }

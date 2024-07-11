@@ -6,21 +6,25 @@
 
 #include "DealConfig.h"
 
-DealType DealConfig::getGameType() const{
+DealType DealConfig::getDealType() const{
   return dealType;
 }
 
-Seat DealConfig::getFirstPlayer() const {
+Seat::Position DealConfig::getFirstPlayer() const {
   return firstPlayer;
 }
 
-PlayerHandsConfig DealConfig::getPlayerHandsConfig() const {
+HandConfig DealConfig::getHandConfig(const Seat::Position player) const {
+  return handsConfig.getHandConfig(player);
+}
+
+PlayerHandsConfig DealConfig::getHandsConfig() const {
   return handsConfig;
 }
 
 std::ostream& operator<< (std::ostream &os, const DealConfig &config) {
-  os << "GameConfig{gameType=" << config.getGameType()
-     << ", seat=" << config.getFirstPlayer()
-     << ", playerHandsConfig=" << config.getPlayerHandsConfig() << "}";
+  os << "GameConfig{gameType=" << config.dealType
+     << ", seat=" << Seat(config.firstPlayer)
+     << ", playerHandsConfig=" << config.handsConfig << "}";
   return os;
 }

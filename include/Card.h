@@ -50,6 +50,8 @@ class Card {
   static std::vector<Color> getAllColors();
   static std::vector<Value> getAllValues();
 
+  bool operator==(const Card &) const;
+
 private:
   Value value;
   Color color;
@@ -59,6 +61,16 @@ private:
 
   static std::unordered_map<char, Color> charToColor;
   static std::unordered_map<Color, char> colorToChar;
+};
+
+template <>
+struct std::hash<Card> {
+  std::size_t operator()(const Card& card) const noexcept {
+    const std::size_t h1 = std::hash<Card::Value>{}(card.getValue());
+    const std::size_t h2 = std::hash<Card::Color>{}(card.getColor());
+    // Combine the two hash values
+    return h1 ^ (h2 << 1);
+  }
 };
 
 std::ostream &operator<<(std::ostream &os, const Card &card);
