@@ -4,3 +4,7 @@ build
 ref/*
 todo.txt
 valgrind-out.txt
+kierki-serwer
+kierki-klient
+tmp*
+config.txt

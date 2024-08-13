@@ -14,17 +14,19 @@ public:
     in_port_t port;
   };
 
+  // If addrFam = AF_UNSPEC, then on return it contains
+  // the address family of the server.
   [[nodiscard]] static MaybeError CreateAddress(
       std::string host,
       in_port_t port,
-      int addrFam,
+      int &addrFam,
       struct sockaddr_storage &address);
 
   // To bind to any port, pass s.port = 0.
   [[nodiscard]] static MaybeError GetBoundSocket(int ai_family, Socket &s);
 
   [[nodiscard]] static MaybeError ConnectSocket(
-      int remoteFd,
+      int fd,
       const struct sockaddr_storage &address);
 
   [[nodiscard]] static MaybeError GetStringFromAddress(

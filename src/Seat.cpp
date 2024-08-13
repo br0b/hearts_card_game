@@ -28,6 +28,10 @@ Seat::Value Seat::Get() const {
   return value;
 }
 
+size_t Seat::GetIndex() const {
+  return static_cast<size_t>(value);
+}
+
 std::ostream& operator<<(std::ostream& os, const Seat& seat) {
   os << seat.chars[static_cast<int>(seat.value)];
   return os;

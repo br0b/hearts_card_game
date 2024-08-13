@@ -56,7 +56,7 @@ std::optional<Card::Value> Card::ParseValue(std::string value) {
   };
 }
 
-std::optional<Card::Color> ParseColor(std::string color) {
+std::optional<Card::Color> Card::ParseColor(std::string color) {
   if (color.size() > 1) {
     return std::nullopt;
   }

@@ -35,17 +35,23 @@ $(TARGET_CLIENT): $(CLIENT_OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 # Object files for server
-$(BUILD_DIR)/kierki-serwer.o: $(SERVER_SRC) $(HEADERS)
+$(BUILD_DIR)/kierki-serwer.o: $(SERVER_SRC) $(HEADERS) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Object files for client
-$(BUILD_DIR)/kierki-klient.o: $(CLIENT_SRC) $(HEADERS)
+$(BUILD_DIR)/kierki-klient.o: $(CLIENT_SRC) $(HEADERS) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Common object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADERS)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADERS) | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Ensure build directory exists
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(TARGET_SERVER) $(TARGET_CLIENT)
+
+.PHONY: all clean
 

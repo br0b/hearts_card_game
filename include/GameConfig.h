@@ -6,7 +6,8 @@
 
 class GameConfig {
  public:
-  [[nodiscard]] MaybeError Set(const std::vector<std::string> &lines);
+  // If the file exists, then assumes it has the right format.
+  [[nodiscard]] MaybeError Set(std::string fileName);
 
   [[nodiscard]] const std::vector<DealConfig>& Get() const;
 

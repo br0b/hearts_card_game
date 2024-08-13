@@ -7,28 +7,28 @@
 #include "MessageTrick.h"
 #include "MessageWrong.h"
 
-std::optional<Message> Message::Deserialize(std::string str) {
-  std::optional<Message> msg;
+std::optional<std::unique_ptr<Message>> Message::Deserialize(std::string str) {
+  std::unique_ptr<Message> msg;
 
   if (str.compare(0, 4, "BUSY") == 0) {
-    msg = MessageBusy();
+    *msg = MessageBusy();
   } else if (str.compare(0, 4, "DEAL") == 0) {
-    msg = MessageDeal();
+    *msg = MessageDeal();
   } else if (str.compare(0, 3, "IAM") == 0) {
-    msg = MessageIam();
+    *msg = MessageIam();
   } else if (str.compare(0, 5, "TAKEN") == 0) {
-    msg = MessageTaken();
+    *msg = MessageTaken();
   } else if (str.compare(0, 5, "TOTAL") == 0) {
-    msg = MessagePoints("TOTAL");
+    *msg = MessagePoints("TOTAL");
   } else if (str.compare(0, 5, "TRICK") == 0) {
-    msg = MessageTrick();
+    *msg = MessageTrick();
   } else if (str.compare(0, 5, "SCORE") == 0) {
-    msg = MessagePoints("SCORE");
+    *msg = MessagePoints("SCORE");
   } else if (str.compare(0, 5, "WRONG") == 0) {
-    msg = MessageWrong();
+    *msg = MessageWrong();
   }
 
-  if (msg.has_value() && msg->Parse(str).has_value()) {
+  if (msg.get() == nullptr || msg->Parse(str).has_value()) {
     return std::nullopt;
   }
 

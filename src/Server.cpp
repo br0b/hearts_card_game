@@ -10,11 +10,12 @@
 #include "Server.h"
 
 Server::Server(const std::string &separator, size_t bufferLen, time_t timeout)
-    : maxTimeout(timeout), connectionStore(separator, bufferLen), players(4) {}
+    : maxTimeout(timeout), connectionStore(separator, bufferLen) {}
 
-void Server::Configure(std::unique_ptr<std::vector<DealConfig>> deals_) {
+void Server::Configure(std::vector<DealConfig> deals_) {
   signal(SIGPIPE, SIG_IGN);
   deals = std::move(deals_);
+  std::reverse(deals.begin(), deals.end());
 }
 
 MaybeError Server::Listen(in_port_t port, int maxTcpQueueLen) {

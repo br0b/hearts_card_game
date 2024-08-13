@@ -3,23 +3,22 @@
 
 #include "DealType.h"
 #include "Hand.h"
-#include "MaybeError.h"
 #include "Seat.h"
 
 class DealConfig {
  public:
-  [[nodiscard]] MaybeError SetType(char type_);
-  [[nodiscard]] MaybeError SetSeat(char seat);
-  [[nodiscard]] MaybeError SetHands(const std::vector<std::string> &hands_);
+  void SetType(DealType type_);
+  void SetFirst(Seat first_);
+  void SetHands(std::array<Hand, 4> hands_);
 
   [[nodiscard]] DealType GetType() const;
   [[nodiscard]] Seat GetFirst() const;
-  [[nodiscard]] const Hand& GetHand(int i) const;
+  [[nodiscard]] const std::array<Hand, 4> &GetHands() const;
 
  private:
   DealType type;
   Seat first;
-  std::vector<Hand> hands;
+  std::array<Hand, 4> hands;
 };
 
 #endif  // GAMECONFIG_H

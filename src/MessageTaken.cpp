@@ -49,7 +49,7 @@ MaybeError MessageTaken::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string GetPattern() {
+std::string MessageTaken::GetPattern() {
   return "^TAKEN([1-9]|1[0-3])((?:(?:10|[2-9]|[JQKA])[CDHS]){4})([NESW])$";
 }
 

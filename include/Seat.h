@@ -21,6 +21,7 @@ class Seat {
   void CycleClockwise();
 
   [[nodiscard]] Value Get() const;
+  [[nodiscard]] size_t GetIndex() const;
   friend std::ostream& operator<<(std::ostream &os, const Seat &s);
 
  private:

@@ -22,7 +22,6 @@ std::ostream& operator<<(std::ostream &os, const MessageBusy &msg) {
 MaybeError MessageBusy::SetAfterMatch(std::smatch match) {
   std::regex pattern("[NESW]");  
   std::string str = match[1];
-  MaybeError error;
 
   seats.clear();
 
@@ -30,7 +29,7 @@ MaybeError MessageBusy::SetAfterMatch(std::smatch match) {
        it != std::sregex_iterator();
        it++) {
     seats.emplace_back();
-    if (error = seats.back().Parse(it->str()); error.has_value()) {
+    if (MaybeError error = seats.back().Parse(it->str()); error.has_value()) {
       return error;
     }
   }

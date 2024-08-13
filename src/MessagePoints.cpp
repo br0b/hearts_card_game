@@ -1,19 +1,27 @@
 #include "MessagePoints.h"
 #include "MaybeError.h"
+#include "Seat.h"
 #include "Utilities.h"
 
 MessagePoints::MessagePoints(std::string header) : header(header) {}
 
-void MessagePoints::SetPoints(Points points_) {
-  points = points_;
+void MessagePoints::SetPoints(std::array<int, 4> points_) {
+  points = std::move(points_);
 }
 
-const Points& MessagePoints::GetPoints() const {
+const std::array<int, 4> &MessagePoints::GetPoints() const {
   return points;
 }
 
-std::ostream& operator<<(std::ostream &os, const MessagePoints &msg) {
-  os << msg.header << msg.points;
+std::ostream &operator<<(std::ostream &os, const MessagePoints &msg) {
+  Seat seat;
+
+  os << msg.header;
+  for (int p : msg.points) {
+    os << seat << p;
+    seat.CycleClockwise();
+  }
+
   return os;
 }
 
@@ -24,8 +32,6 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
   MaybeError error = Error::InvalidArgs("MessagePoints::SetAfterMatch");
   std::string str = match[1].str();
   std::regex pattern("([NESW])(0|[1-9][0-9]*)");
-
-  points.Clear();
 
   for (auto it = std::sregex_iterator(str.begin(), str.end(), pattern);
        it != std::sregex_iterator();
@@ -46,7 +52,7 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
       return error;
     }
 
-    points.Add(seat, p.value());
+    points[seat.GetIndex()] = p.value();
   }
 
   return std::nullopt;

@@ -20,12 +20,11 @@ class Error {
   [[nodiscard]] const std::string& GetMessage() const;
   [[nodiscard]] virtual bool IsCritical() const;
 
- protected:
-  std::string message;
- 
  private:
   static std::unique_ptr<std::string> CreateErrMsgFromErrno(
       std::string funName);
+
+  std::string message;
 };
 
 #endif  // ERROR_H

@@ -5,7 +5,8 @@ Game::Game() : currentTrick{{}, 1} {}
 
 std::optional<Game::TrickResult> Game::Play(Card card) {
   currentTrick.cards.push_back(card);
-  hands[currentTurn.Get()][card.GetColorIndex()].erase(card);
+  hands[static_cast<size_t>(currentTurn.Get())][card.GetColorIndex()]
+    .erase(card);
   currentTurn.CycleClockwise();
 
   if (currentTrick.cards.size() < 4) {
@@ -28,12 +29,12 @@ void Game::Deal(DealConfig &config) {
   currentTrick.number = 1;
 
   for (size_t i = 0; i < 4; i++) {
-    for (const Card &c : config.GetHand(i).Get()) {
+    for (const Card &c : config.GetHands()[i].Get()) {
       hands[i][c.GetColorIndex()].insert(c);
     }
   }
 
-  switch (config.GetType().Get().value()) {
+  switch (config.GetType().Get()) {
     case DealType::Value::kTricksBad: {
       trickJudge = TricksBadJudge;
       break;
@@ -52,34 +53,21 @@ void Game::Deal(DealConfig &config) {
     }
     case DealType::Value::kKingOfHeartsBad: {
       trickJudge = KingOfHeartsBadJudge;
-
-  class Points {
-   public:
-    void Add(Seat player, int x);
-    void ClearScore();
-
-    [[nodiscard]] const std::array<int, 4>& GetScore() const;
-    [[nodiscard]] const std::array<int, 4>& GetTotal() const;
-
-   private:
-    std::array<int, 4> score;
-    std::array<int, 4> total;
-  };
       break;
     }
     case DealType::Value::kSeventhAndLastTrickBad: {
-      trickJudge = SeventhAndLastTrickBadJudge;
+      trickJudge = KingOfHeartsBadJudge;
       break;
     }
     case DealType::Value::kRobber: {
-      trickJudge = RobberJudge;
+      trickJudge = KingOfHeartsBadJudge;
       break;
     }
-  }
+  };
 }
 
 bool Game::IsMoveLegal(Seat player, Card card) const {
-  if (!hands[player.Get()][card.GetColorIndex()].contains(card)) {
+  if (!hands[player.GetIndex()][card.GetColorIndex()].contains(card)) {
     return false;
   }
 
@@ -89,7 +77,7 @@ bool Game::IsMoveLegal(Seat player, Card card) const {
 
   Card firstCard = currentTrick.cards.back();
   return card.GetColor() == firstCard.GetColor()
-         || hands[player.Get()][firstCard.GetColorIndex()].empty();
+         || hands[player.GetIndex()][firstCard.GetColorIndex()].empty();
 }
 
 Seat Game::GetTaker() const {

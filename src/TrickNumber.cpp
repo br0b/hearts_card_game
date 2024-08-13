@@ -13,3 +13,8 @@ MaybeError TrickNumber::Parse(std::string str) {
   }
 }
 
+std::ostream& operator<<(std::ostream &os, const TrickNumber &x) {
+  os << x.number;
+  return os;
+}
+
