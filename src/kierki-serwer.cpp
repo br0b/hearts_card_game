@@ -1,53 +1,40 @@
-//
-// Created by robert-grigoryan on 5/27/24.
-//
-#include <Logger.h>
+#include <memory>
 
-#include <vector>
-
-#include "Card.h"
-#include "Seat.h"
+#include "GameConfig.h"
+#include "MaybeError.h"
+#include "Logger.h"
 #include "Server.h"
-#include "ServerConfig.h"
 
-PlayerHandsConfig getPlayerHandsConfig() {
-  std::vector<HandConfig> hands;
-  std::vector<Card> hand;
-
-  for (const Card::Color color : Card::getAllColors()) {
-    for (const Card::Value value : Card::getAllValues()) {
-      hand.emplace_back(value, color);
-    }
-
-    hands.emplace_back(hand);
-    hand.clear();
-  }
-
-  return {hands[0], hands[1], hands[2], hands[3]};
-}
-
-ServerConfig getServerConfig() {
-  const DealType dealType(DealType::Type::kTricksBad);
-  constexpr auto firstPlayer = Seat::Position::kN;
-  const DealConfig dealConfig(dealType, firstPlayer, getPlayerHandsConfig());
-  const std::vector deals = {dealConfig};
-  const ServerNetworkingConfig serverNetworkingConfig(42000, 1000000);
-  ServerConfig serverConfig(deals, serverNetworkingConfig);
-  return serverConfig;
+MaybeError GetServerConfig(GameConfig &config) {
+  return config.Set({
+    "1N",
+    "7S10SAC8H3C5HQHQD7H10D4C7DKH",
+    "9D3S9C2SQS5C2C6D5SKC6H9H7C",
+    "KSJHQCAD10HAS4H3H6S5D8S8DKD",
+    "8CJD3D4S9SJC10C6C4DJSAH2H2D",
+  });
 }
 
 int main() {
-  std::variant<std::unique_ptr<Server>, Error> server =
-      Server::Create(getServerConfig());
-  if (std::holds_alternative<Error>(server)) {
-    Logger::log(std::get<Error>(server).getMessage());
+  const std::string separator = "\r\n";
+  const size_t kBufferLen = 4096;
+  const time_t kTimeout(5000);
+  in_port_t port = 42000;
+  const int kMaxTcpQueueLen = 5;
+
+  MaybeError error = std::nullopt;
+  auto config = std::make_unique<GameConfig>();
+  auto server = std::make_unique<Server>(separator, kBufferLen, kMaxTcpQueueLen);
+
+  if (error = GetServerConfig(*config); error.has_value()) {
+    Logger::Log(error.value()->GetMessage());
     return 1;
   }
 
-  if (const std::optional<Error> ret =
-          std::get<std::unique_ptr<Server>>(server)->run();
-      ret.has_value()) {
-    Logger::log(ret.value().getMessage());
+  server->Configure(std::move(config));
+
+  if (error = server->Listen(port, kTimeout); error.has_value()) {
+    Logger::Log(error.value()->GetMessage());
     return 1;
   }
 

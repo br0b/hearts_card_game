@@ -1,93 +1,182 @@
-//
-// Created by robert-grigoryan on 5/31/24.
-//
-#include <variant>
-
-#include "Error.h"
 #include "Game.h"
+#include "DealType.h"
 
-Seat Game::getCurrentTurn() const { return currentTurn; }
+Game::Game() : currentTrick{{}, 1} {}
 
-int Game::getCurrentTrickNumber() const {
-  return history.getCurrentTrickNumber();
+std::optional<Game::TrickResult> Game::Play(Card card) {
+  currentTrick.cards.push_back(card);
+  hands[currentTurn.Get()][card.GetColorIndex()].erase(card);
+  currentTurn.CycleClockwise();
+
+  if (currentTrick.cards.size() < 4) {
+    return std::nullopt;
+  }
+
+  // Trick finished.
+  TrickResult res;
+  res.taker = GetTaker();
+  res.points = trickJudge(currentTrick);
+  currentTurn = res.taker;
+  currentTrick.cards.clear();
+  currentTrick.number++;
+  return res;
 }
 
-void Game::playNewDeal(const DealConfig& dealConfig) {
-  playersManager.playNewDeal(dealConfig.getHandsConfig());
-  currentTurn = Seat(dealConfig.getFirstPlayer());
-  dealType = dealConfig.getDealType();
-  isDealFinished = false;
-  history.clear();
-}
+void Game::Deal(DealConfig &config) {
+  currentTurn = config.GetFirst();
+  currentTrick.cards.clear();
+  currentTrick.number = 1;
 
-std::optional<Error> Game::playCard(const Card& card) {
-  if (isDealFinished) {
-    return Error("The deal is already finished.");
-  }
-
-  if (const std::optional<Card::Color> leadingColor = history.getLeadingColor();
-      leadingColor.has_value() && card.getColor() != leadingColor &&
-      playersManager.hasColor(currentTurn, leadingColor.value())) {
-    return Error("A player must follow the leading color.");
-  }
-
-  if (std::optional<Error> error = playersManager.takeCard(currentTurn, card);
-      error.has_value()) {
-    return error;
-  }
-
-  setNextPlayer();
-  history.push(currentTurn, card);
-  const std::variant<bool, Error> tmp = history.isDealFinished(dealType);
-
-  if (std::holds_alternative<Error>(tmp)) {
-    return std::get<Error>(tmp);
-  }
-
-  if (std::get<bool>(tmp)) {
-    isDealFinished = true;
-    distributePoints();
-  }
-
-  return std::nullopt;
-}
-
-bool Game::isCurrentTrickFinished() const { return history.isTrickFinished(); }
-
-bool Game::isCurrentDealFinished() const { return isDealFinished; }
-
-Game::Game()
-    : currentTurn(Seat(Seat::Position::kN)),
-      dealType(DealType::Type::kTricksBad),
-      isDealFinished(false) {}
-
-std::optional<Error> Game::setNextPlayer() {
-  if (history.isTrickFinished()) {
-    const std::variant<Seat, Error> tmp = history.getTrickTaker();
-    if (std::holds_alternative<Error>(tmp)) {
-      return std::get<Error>(tmp);
+  for (size_t i = 0; i < 4; i++) {
+    for (const Card &c : config.GetHand(i).Get()) {
+      hands[i][c.GetColorIndex()].insert(c);
     }
-    currentTurn = std::get<Seat>(tmp);
-  } else {
-    currentTurn = turnProgression.at(currentTurn.getPosition());
   }
 
-  return std::nullopt;
-}
+  switch (config.GetType().Get().value()) {
+    case DealType::Value::kTricksBad: {
+      trickJudge = TricksBadJudge;
+      break;
+    }
+    case DealType::Value::kHeartsBad: {
+      trickJudge = HeartsBadJudge;
+      break;
+    }
+    case DealType::Value::kQueensBad: {
+      trickJudge = QueensBadJudge;
+      break;
+    }
+    case DealType::Value::kGentlemenBad: {
+      trickJudge = GentlemenBadJudge;
+      break;
+    }
+    case DealType::Value::kKingOfHeartsBad: {
+      trickJudge = KingOfHeartsBadJudge;
 
-std::optional<Error> Game::distributePoints() {
-  std::variant<std::unordered_map<Seat::Position, int>, Error> points =
-      history.getPoints(dealType);
-  if (std::holds_alternative<Error>(points)) {
-    return std::get<Error>(points);
+  class Points {
+   public:
+    void Add(Seat player, int x);
+    void ClearScore();
+
+    [[nodiscard]] const std::array<int, 4>& GetScore() const;
+    [[nodiscard]] const std::array<int, 4>& GetTotal() const;
+
+   private:
+    std::array<int, 4> score;
+    std::array<int, 4> total;
+  };
+      break;
+    }
+    case DealType::Value::kSeventhAndLastTrickBad: {
+      trickJudge = SeventhAndLastTrickBadJudge;
+      break;
+    }
+    case DealType::Value::kRobber: {
+      trickJudge = RobberJudge;
+      break;
+    }
   }
-  return playersManager.distributePoints(
-      std::get<std::unordered_map<Seat::Position, int>>(points));
 }
 
-const std::unordered_map<Seat::Position, Seat> Game::turnProgression = {
-    {Seat::Position::kN, Seat(Seat::Position::kE)},
-    {Seat::Position::kE, Seat(Seat::Position::kS)},
-    {Seat::Position::kS, Seat(Seat::Position::kW)},
-    {Seat::Position::kW, Seat(Seat::Position::kN)},
-};
+bool Game::IsMoveLegal(Seat player, Card card) const {
+  if (!hands[player.Get()][card.GetColorIndex()].contains(card)) {
+    return false;
+  }
+
+  if (currentTrick.cards.empty()) {
+    return true;
+  }
+
+  Card firstCard = currentTrick.cards.back();
+  return card.GetColor() == firstCard.GetColor()
+         || hands[player.Get()][firstCard.GetColorIndex()].empty();
+}
+
+Seat Game::GetTaker() const {
+  auto card = currentTrick.cards.begin();
+  Card first = *card;
+  Seat player = currentTurn;
+  Seat taker = player;
+  card++;
+  player.CycleClockwise();
+
+  for (; card != currentTrick.cards.end(); card++) {
+    if (card->GetColor() == first.GetColor()
+        && card->GetValue() > first.GetValue()) {
+      taker = player;
+    }
+    player.CycleClockwise();
+  }
+
+  return taker;
+}
+
+int Game::TricksBadJudge(const Game::Trick &trick) {
+  (void)trick;
+  return 1;
+}
+
+int Game::HeartsBadJudge(const Game::Trick &trick) {
+  int n = 0;
+
+  for (const Card &c: trick.cards) {
+    if (c.GetColor() == Card::Color::kHeart) {
+      n++;
+    }
+  }
+
+  return n;
+}
+
+int Game::QueensBadJudge(const Game::Trick &trick) {
+  int n= 0;
+
+  for (const Card &c: trick.cards) {
+    if (c.GetValue() == Card::Value::kQ) {
+      n++;
+    }
+  }
+
+  return 5 * n;
+}
+
+int Game::GentlemenBadJudge(const Game::Trick &trick) {
+  int n = 0;
+
+  for (const Card &c: trick.cards) {
+    if (c.GetValue() == Card::Value::kJ || c.GetValue() == Card::Value::kK) {
+      n++;
+    }
+  }
+
+  return 2 * n;
+}
+
+int Game::KingOfHeartsBadJudge(const Game::Trick &trick) {
+  int n = 0;
+  Card kingOfHearts(Card::Value::kK, Card::Color::kHeart);
+
+  for (const Card &c: trick.cards) {
+    if (c == kingOfHearts) {
+      n++;
+    }
+  }
+
+  return 18 * n;
+}
+
+int Game::SeventhAndLastTrickBadJudge(const Game::Trick &trick) {
+  int n = trick.number;
+  return (n == 7 || n == 13) ? 10 : 0;
+}
+
+int Game::RobberJudge(const Game::Trick &trick) {
+  return TricksBadJudge(trick)
+    + HeartsBadJudge(trick)
+    + QueensBadJudge(trick)
+    + GentlemenBadJudge(trick)
+    + GentlemenBadJudge(trick)
+    + KingOfHeartsBadJudge(trick)
+    + SeventhAndLastTrickBadJudge(trick);
+}
+

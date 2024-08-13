@@ -1,55 +1,35 @@
-//
-// Created by robert-grigoryan on 5/30/24.
-//
-
 #include "Seat.h"
+#include "MaybeError.h"
 
-std::unordered_map<char, Seat::Position> Seat::charToPosition = {
-  {'N', Position::kN},
-  {'E', Position::kE},
-  {'S', Position::kS},
-  {'W', Position::kW}};
-
-std::unordered_map<Seat::Position, char> Seat::positionToChar = {
-  {Position::kN, 'N'},
-  {Position::kE, 'E'},
-  {Position::kS, 'S'},
-  {Position::kW, 'W'}};
-
-std::unordered_map<Seat::Position, int> Seat::positionToRank = {
-  {Position::kN, 0},
-  {Position::kE, 1},
-  {Position::kS, 2},
-  {Position::kW, 3}};
-
-std::optional<Seat> Seat::SeatFromChar(char _pos) {
-  if (charToPosition.contains(_pos)) {
-    return Seat(charToPosition.at(_pos));
+MaybeError Seat::Parse(std::string str) {
+  if (str.size() != 1) {
+    return Error::InvalidArgs("Seat::Parse");
   }
 
-  return std::nullopt;
+  for (int i = 0; i < 4; i++) {
+    if (str[0] == chars[i]) {
+      value = static_cast<Value>(i);
+      return std::nullopt;
+    }
+  }
+
+  return Error::InvalidArgs("Seat::Parse");
 }
 
-Seat::Position Seat::getPosition() const{
-  return position;
+void Seat::Set(Seat::Value value_) {
+  value = value_;
 }
 
-[[nodiscard]] std::string Seat::serialize() const {
-  return { positionToChar.at(position) };
+void Seat::CycleClockwise() {
+  value = static_cast<Value>((static_cast<int>(value) + 1) % 4);
 }
 
-int Seat::getRank() const{
-  return positionToRank.at(position);
+Seat::Value Seat::Get() const {
+  return value;
 }
-
-std::vector<Seat> Seat::getAllSeats() {
-  return {Seat(Position::kN), Seat(Position::kE),
-          Seat(Position::kS), Seat(Position::kW)};
-}
-
-Seat::Seat(const Position _position) : position(_position) {}
 
 std::ostream& operator<<(std::ostream& os, const Seat& seat) {
-  os << "Seat{position=" << seat.serialize() << "}";
+  os << seat.chars[static_cast<int>(seat.value)];
   return os;
 }
+

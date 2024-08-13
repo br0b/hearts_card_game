@@ -1,14 +1,11 @@
-//
-// Created by robert-grigoryan on 5/30/24.
-//
-#include <chrono>
+#include <iostream>
 
 #include "Logger.h"
 
-void Logger::log(const std::string& message) {
-  std::cerr << message << std::endl;
+void Logger::Log(const std::string &message) {
+  std::cerr << message << "\n";
 }
 
-void Logger::report(const std::string& message) {
-  std::cout << message << std::endl;
+void Logger::Report(const std::string &message) {
+  std::cout << message << "\n";
 }

@@ -1,42 +1,26 @@
-//
-// Created by robert-grigoryan on 5/27/24.
-//
-
 #ifndef GAMECONFIG_H
 #define GAMECONFIG_H
 
-#include <utility>
-
 #include "DealType.h"
-#include "PlayerHandsConfig.h"
+#include "Hand.h"
+#include "MaybeError.h"
 #include "Seat.h"
 
-/**
- * Configuration for a single game. One game is composed of at most 13 tricks.
- *
- * @param gameType Type of the game.
- * @param firstPlayer First player in the first round.
- */
 class DealConfig {
  public:
-  DealConfig(const DealType &_gameType, const Seat::Position _firstPlayer,
-             PlayerHandsConfig _handsConfig)
-      : dealType(_gameType),
-        firstPlayer(_firstPlayer),
-        handsConfig(std::move(_handsConfig)) {}
+  [[nodiscard]] MaybeError SetType(char type_);
+  [[nodiscard]] MaybeError SetSeat(char seat);
+  [[nodiscard]] MaybeError SetHands(const std::vector<std::string> &hands_);
 
-  [[nodiscard]] DealType getDealType() const;
-  [[nodiscard]] Seat::Position getFirstPlayer() const;
-
-  [[nodiscard]] HandConfig getHandConfig(Seat::Position player) const;
-  [[nodiscard]] PlayerHandsConfig getHandsConfig() const;
-
-  friend std::ostream& operator<<(std::ostream &os, const DealConfig &config);
+  [[nodiscard]] DealType GetType() const;
+  [[nodiscard]] Seat GetFirst() const;
+  [[nodiscard]] const Hand& GetHand(int i) const;
 
  private:
-  DealType dealType;
-  Seat::Position firstPlayer;
-  PlayerHandsConfig handsConfig;
+  DealType type;
+  Seat first;
+  std::vector<Hand> hands;
 };
 
 #endif  // GAMECONFIG_H
+

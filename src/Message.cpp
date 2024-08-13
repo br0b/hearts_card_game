@@ -1,56 +1,48 @@
-//
-// Created by robert-grigoryan on 6/6/24.
-//
-#include <memory>
-
-#include "Logger.h"
 #include "Message.h"
+#include "MessageBusy.h"
+#include "MessageDeal.h"
+#include "MessageIam.h"
+#include "MessagePoints.h"
+#include "MessageTaken.h"
+#include "MessageTrick.h"
+#include "MessageWrong.h"
 
+std::optional<Message> Message::Deserialize(std::string str) {
+  std::optional<Message> msg;
 
-std::variant<std::unique_ptr<Message>, Error> Message::Create(
-    const std::string& message) {
-  if (isValidMessage(message)) {
-    return std::unique_ptr<Message>(new Message(message));
+  if (str.compare(0, 4, "BUSY") == 0) {
+    msg = MessageBusy();
+  } else if (str.compare(0, 4, "DEAL") == 0) {
+    msg = MessageDeal();
+  } else if (str.compare(0, 3, "IAM") == 0) {
+    msg = MessageIam();
+  } else if (str.compare(0, 5, "TAKEN") == 0) {
+    msg = MessageTaken();
+  } else if (str.compare(0, 5, "TOTAL") == 0) {
+    msg = MessagePoints("TOTAL");
+  } else if (str.compare(0, 5, "TRICK") == 0) {
+    msg = MessageTrick();
+  } else if (str.compare(0, 5, "SCORE") == 0) {
+    msg = MessagePoints("SCORE");
+  } else if (str.compare(0, 5, "WRONG") == 0) {
+    msg = MessageWrong();
   }
 
-  return Error("ERROR: Invalid message: " + message);
-}
-
-bool Message::isValidMessage(const std::string& message) {
-  // Check if string ends with \r\n.
-  if (message.size() < 2) {
-    return false;
-  }
-  if (message[message.size() - 2] != '\r' ||
-      message[message.size() - 1] != '\n') {
-    return false;
-  }
-
-  return true;
-}
-
-bool Message::containsMessage(const std::string& message) {
-  return message.find("\r\n") != std::string::npos;
-}
-
-std::optional<std::unique_ptr<Message>> Message::getFirstMessage(
-    const std::string& message) {
-  if (!containsMessage(message)) {
+  if (msg.has_value() && msg->Parse(str).has_value()) {
     return std::nullopt;
   }
 
-  return std::unique_ptr<Message>(
-      new Message(message.substr(0, message.find("\r\n") + 2)));
+  return msg;
 }
 
-std::string Message::getMessage() const { return message; }
+MaybeError Message::Parse(std::string str) {
+  std::smatch match;
+  std::regex pattern(GetPattern());
 
-std::string Message::getMessageWithoutSeperator() const {
-  return message.substr(0, message.size() - getSeperator().size());
+  if (std::regex_match(str, match, pattern)) {
+    return SetAfterMatch(std::move(match));
+  }
+
+  return Error::InvalidArgs("Message::Parse");
 }
 
-Message::~Message() = default;
-
-std::string Message::getSeperator() { return "\r\n"; }
-
-Message::Message(std::string _message) : message(std::move(_message)) {}

@@ -8,9 +8,12 @@
 
 class ErrorCritical final : public Error {
  public:
-  [[nodiscard]] bool isCritical() const override;
   ErrorCritical();
-  explicit ErrorCritical(std::string _message);
+  ErrorCritical(const std::string &funName, const std::string &message_);
+  explicit ErrorCritical(const std::string &_message);
+  static std::unique_ptr<ErrorCritical> FromErrno(const std::string &funName);
+
+  [[nodiscard]] bool IsCritical() const override;
 };
 
 

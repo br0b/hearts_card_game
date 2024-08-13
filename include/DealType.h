@@ -1,41 +1,29 @@
-//
-// Created by robert-grigoryan on 5/30/24.
-//
+#ifndef TYPE_H
+#define TYPE_H
 
-#ifndef GAMETYPE_H
-#define GAMETYPE_H
+#include <iostream>
 
-#include <optional>
-#include <ostream>
-#include <unordered_map>
-#include <vector>
+#include "MaybeError.h"
 
 class DealType {
  public:
-  enum class Type {
-    kTricksBad = 1,
-    kHeartsBad = 2,
-    kQueensBad = 3,
-    kGentlemenBad = 4,
-    kKingOfHeartsBad = 5,
-    kSeventhAndLastTrickBad = 6,
-    kRobber = 7
+  enum class Value {
+    kTricksBad = 0,
+    kHeartsBad,
+    kQueensBad,
+    kGentlemenBad,
+    kKingOfHeartsBad,
+    kSeventhAndLastTrickBad,
+    kRobber,
   };
 
-  explicit DealType(const Type _type) : type(_type) {}
-  static std::optional<DealType> GameTypeFromChar(char _type);
-  static std::vector<DealType> getAllTypes();
+  [[nodiscard]] MaybeError Parse(std::string str);
 
-  [[nodiscard]] Type getType() const;
-  [[nodiscard]] char serialize() const;
+  [[nodiscard]] Value Get() const;
+  friend std::ostream& operator<<(std::ostream &os, const DealType &dt);
 
  private:
-  Type type;
-
-  static std::unordered_map<char, Type> charToType;
-  static std::unordered_map<Type, char> typeToChar;
+  Value value;
 };
 
-std::ostream& operator<<(std::ostream& os, const DealType& gameType);
-
-#endif //GAMETYPE_H
+#endif  // TYPE_H

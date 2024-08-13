@@ -7,6 +7,7 @@
 #include <optional>
 #include <ostream>
 
+// To be used with ServerConfig.
 class PortConfig {
  public:
   explicit PortConfig(const std::optional<uint16_t> _port) : port(_port) {}

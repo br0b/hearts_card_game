@@ -5,18 +5,8 @@
 #define CONNECTIONPROTOCOL_H
 #include <ostream>
 
-class ConnectionProtocol {
-public:
-  enum class Code { kIPv4, kIPv6 };
+enum class ConnectionProtocol { kIPv4, kIPv6 };
 
-  [[nodiscard]] Code getCode() const;
-  friend std::ostream& operator<<(std::ostream& os,
-                                  const ConnectionProtocol& protocol);
-
-  explicit ConnectionProtocol(Code code);
-
-private:
-  Code code;
-};
+std::ostream &operator<<(std::ostream &os, const ConnectionProtocol &protocol);
 
 #endif //CONNECTIONPROTOCOL_H

@@ -1,35 +1,32 @@
-//
-// Created by robert-grigoryan on 5/27/24.
-//
 #ifndef SEAT_H
 #define SEAT_H
 
-#include <optional>
+#include <array>
 #include <ostream>
-#include <unordered_map>
-#include <vector>
+
+#include "MaybeError.h"
 
 class Seat {
  public:
-  enum class Position { kN, kE, kS, kW };
+  enum class Value {
+    kN = 0,
+    kE,
+    kS,
+    kW,
+  };
 
-  [[nodiscard]] Position getPosition() const;
-  [[nodiscard]] std::string serialize() const;
-  [[nodiscard]] int getRank() const;
+  MaybeError Parse(std::string str);
 
-  static std::optional<Seat> SeatFromChar(char _pos);
-  static std::vector<Seat> getAllSeats();
-  explicit Seat(Position _position);
+  void Set(Value value_);
+  void CycleClockwise();
+
+  [[nodiscard]] Value Get() const;
+  friend std::ostream& operator<<(std::ostream &os, const Seat &s);
 
  private:
-  Position position;
-
-  static std::unordered_map<char, Position> charToPosition;
-  static std::unordered_map<Position, char> positionToChar;
-  // Map Positions to numbers. Used for pollfds indexing.
-  static std::unordered_map<Position, int> positionToRank;
+  Value value;
+  static constexpr std::array<char, 4> chars{'N', 'E', 'S', 'W'};
 };
 
-std::ostream& operator<<(std::ostream& os, const Seat& seat);
-
 #endif  // SEAT_H
+

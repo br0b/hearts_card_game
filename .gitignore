@@ -1,0 +1,6 @@
+.cache/*
+build
+*.json
+ref/*
+todo.txt
+valgrind-out.txt

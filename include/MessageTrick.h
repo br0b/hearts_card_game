@@ -1,31 +1,27 @@
-//
-// Created by robert-grigoryan on 6/9/24.
-//
 #ifndef MESSAGETRICK_H
 #define MESSAGETRICK_H
 
-#include <regex>
-
+#include "Hand.h"
 #include "Message.h"
-#include "Trick.h"
+#include "TrickNumber.h"
 
 class MessageTrick final : public Message {
-public:
-  static std::unique_ptr<MessageTrick> Create(int trickNumber,
-                                              const std::vector<Card>& trick);
-  static std::variant<std::unique_ptr<MessageTrick>, Error> FromPlayerMessage(
-      const Message& msgTrick);
+ public:
+  void SetTrickNumber(TrickNumber trickNumber_);
+  void SetCards(Hand cards_);
 
-  [[nodiscard]] int getTrickNumber() const;
-  [[nodiscard]] std::vector<Card> getCards() const;
+  [[nodiscard]] TrickNumber GetTrickNumber() const;
+  [[nodiscard]] const Hand &GetCards() const;
 
-private:
-  int trickNumber;
-  std::vector<Card> cards;
-  static const std::regex pattern;
+  friend std::ostream &operator<<(std::ostream &os, const MessageTrick &msg);
 
-  MessageTrick(const std::string& _message, int _trickNumber,
-               std::vector<Card> _cards);
+ private:
+  MaybeError SetAfterMatch(std::smatch match) override;
+  [[nodiscard]] std::string GetPattern() override;
+
+  TrickNumber trickNumber;
+  Hand cards;
 };
 
 #endif  // MESSAGETRICK_H
+

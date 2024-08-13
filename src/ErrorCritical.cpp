@@ -1,13 +1,20 @@
-//
-// Created by robert-grigoryan on 6/5/24.
-//
-#include <utility>
-
 #include "ErrorCritical.h"
 
-bool ErrorCritical::isCritical() const { return true; }
+ErrorCritical::ErrorCritical() : Error() {}
 
-ErrorCritical::ErrorCritical() = default;
+ErrorCritical::ErrorCritical(const std::string &message_) : Error(message_) {}
 
-ErrorCritical::ErrorCritical(std::string _message)
-    : Error(std::move(_message)) {}
+ErrorCritical::ErrorCritical(const std::string &funName,
+                             const std::string &message_)
+  : Error(funName, message_) {}
+
+std::unique_ptr<ErrorCritical> ErrorCritical::FromErrno(
+    const std::string &funName) {
+  return std::make_unique<ErrorCritical>(
+      *Error::CreateErrMsgFromErrno(funName));
+}
+
+bool ErrorCritical::IsCritical() const {
+  return true;
+}
+

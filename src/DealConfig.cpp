@@ -1,30 +1,39 @@
-//
-// Created by robert-grigoryan on 5/27/24.
-//
-
-#include <iostream>
+#include "MaybeError.h"
 
 #include "DealConfig.h"
 
-DealType DealConfig::getDealType() const{
-  return dealType;
+MaybeError DealConfig::SetType(char type_) {
+  return type.Set(type_);
 }
 
-Seat::Position DealConfig::getFirstPlayer() const {
-  return firstPlayer;
+MaybeError DealConfig::SetSeat(char seat) {
+  return first.Set(seat);
 }
 
-HandConfig DealConfig::getHandConfig(const Seat::Position player) const {
-  return handsConfig.getHandConfig(player);
+MaybeError DealConfig::SetHands(const std::vector<std::string> &hands_) {
+  MaybeError error = std::nullopt;
+  Hand hand;
+
+  hands.clear();
+  for (const std::string &hand : hands_) {
+    hands.emplace_back();
+    if (error = hands.back().Set(hand); error.has_value()) {
+      return error;
+    }
+  }
+
+  return std::nullopt;
 }
 
-PlayerHandsConfig DealConfig::getHandsConfig() const {
-  return handsConfig;
+DealType DealConfig::GetType() const {
+  return type;
 }
 
-std::ostream& operator<< (std::ostream &os, const DealConfig &config) {
-  os << "GameConfig{gameType=" << config.dealType
-     << ", seat=" << Seat(config.firstPlayer)
-     << ", playerHandsConfig=" << config.handsConfig << "}";
-  return os;
+Seat DealConfig::GetFirst() const {
+  return first;
 }
+
+const Hand& DealConfig::GetHand(int i) const {
+  return hands[i];
+}
+

@@ -1,95 +1,176 @@
-//
-// Created by robert-grigoryan on 5/27/24.
-//
-#include <optional>
-#include <string>
-#include <vector>
-
 #include "Card.h"
 
-std::unordered_map<std::string, Card::Value> Card::stringToValue = {
-    {"2", Value::kTwo},   {"3", Value::kThree}, {"4", Value::kFour},
-    {"5", Value::kFive},  {"6", Value::kSix},   {"7", Value::kSeven},
-    {"8", Value::kEight}, {"9", Value::kNine},  {"10", Value::kTen},
-    {"J", Value::kJack},  {"Q", Value::kQueen}, {"K", Value::kKing},
-    {"A", Value::kAce}};
+Card::Card(Value value, Color color) : value(value), color(color) {}
 
-std::unordered_map<Card::Value, std::string> Card::valueToString = {
-    {Value::kTwo, "2"},   {Value::kThree, "3"}, {Value::kFour, "4"},
-    {Value::kFive, "5"},  {Value::kSix, "6"},   {Value::kSeven, "7"},
-    {Value::kEight, "8"}, {Value::kNine, "9"},  {Value::kTen, "10"},
-    {Value::kJack, "J"},  {Value::kQueen, "Q"}, {Value::kKing, "K"},
-    {Value::kAce, "A"}};
-
-std::unordered_map<char, Card::Color> Card::charToColor = {
-    {'C', Color::kClub},
-    {'D', Color::kDiamond},
-    {'H', Color::kHeart},
-    {'S', Color::kSpade}};
-
-std::unordered_map<Card::Color, char> Card::colorToChar = {
-    {Color::kClub, 'C'},
-    {Color::kDiamond, 'D'},
-    {Color::kHeart, 'H'},
-    {Color::kSpade, 'S'}};
-
-std::variant<Card, Error> Card::FromString(const std::string& str) {
-  const std::optional<Value> value = getValueFromString(str.substr(0, str.size() - 1));
-  const std::optional<Color> color = getColorFromChar(str[str.size() - 1]);
-
-  if (!value.has_value() || !color.has_value()) {
-    return Error(str + " is an invalid card encoding.");
+std::optional<Card::Value> Card::ParseValue(std::string value) {
+  if (value.size() > 2) {
+    return std::nullopt;
+  } else if (value.size() == 2) {
+    if (value.compare(0, 2, "10") == 0) {
+      return Value::k10;
+    } else {
+      return std::nullopt;
+    }
   }
 
-  return Card(value.value(), color.value());
+  switch (value[0]) {
+    case '2': {
+      return Card::Value::k2;
+    }
+    case '3': {
+      return Card::Value::k3;
+    }
+    case '4': {
+      return Card::Value::k4;
+    }
+    case '5': {
+      return Card::Value::k5;
+    }
+    case '6': {
+      return Card::Value::k6;
+    }
+    case '7': {
+      return Card::Value::k7;
+    }
+    case '8': {
+      return Card::Value::k8;
+    }
+    case '9': {
+      return Card::Value::k9;
+    }
+    case 'J': {
+      return Card::Value::kJ;
+    }
+    case 'Q': {
+      return Card::Value::kQ;
+    }
+    case 'K': {
+      return Card::Value::kK;
+    }
+    case 'A': {
+      return Card::Value::kA;
+    }
+    default: {
+      return std::nullopt;
+    }
+  };
 }
 
-Card::Value Card::getValue() const { return value; }
-
-Card::Color Card::getColor() const { return color; }
-
-std::string Card::serialize() const {
-  return getStringFromValue(value) + getCharFromColor(color);
-}
-
-std::optional<Card::Value> Card::getValueFromString(const std::string &value) {
-  if (stringToValue.contains(value)) {
-    return stringToValue[value];
+std::optional<Card::Color> ParseColor(std::string color) {
+  if (color.size() > 1) {
+    return std::nullopt;
   }
 
-  return std::nullopt;
-}
-
-std::string Card::getStringFromValue(const Value &value) {
-  return valueToString[value];
-}
-
-std::optional<Card::Color> Card::getColorFromChar(const char color) {
-  if (charToColor.contains(color)) {
-    return charToColor[color];
+  switch (color[0]) {
+    case 'C': {
+      return Card::Color::kCub;
+    }
+    case 'D': {
+      return Card::Color::kDiamond;
+    }
+    case 'H': {
+      return Card::Color::kHeart;
+    }
+    case 'S': {
+      return Card::Color::kSpade;
+    }
+    default: {
+      return std::nullopt;
+    }
   }
-
-  return std::nullopt;
 }
 
-char Card::getCharFromColor(const Color &color) { return colorToChar[color]; }
-
-std::vector<Card::Color> Card::getAllColors() {
-  return {Color::kClub, Color::kDiamond, Color::kHeart, Color::kSpade};
+Card::Value Card::GetValue() const {
+  return value;
 }
 
-std::vector<Card::Value> Card::getAllValues() {
-  return {Value::kTwo, Value::kThree, Value::kFour,  Value::kFive,
-          Value::kSix, Value::kSeven, Value::kEight, Value::kNine,
-          Value::kTen, Value::kJack,  Value::kQueen, Value::kKing,
-          Value::kAce};
+Card::Color Card::GetColor() const {
+  return color;
 }
 
-bool Card::operator==(const Card& other) const {
+int Card::GetColorIndex() const {
+  return static_cast<int>(color);
+}
+
+bool Card::operator==(const Card &other) const {
   return value == other.value && color == other.color;
 }
 
-std::ostream &operator<<(std::ostream &os, const Card &card) {
-  os << card.serialize();
+std::ostream& operator<<(std::ostream &os, const Card &c) {
+  switch (c.value) {
+    case Card::Value::k2: {
+      os << '2';
+      break;
+    }
+    case Card::Value::k3: {
+      os << '3';
+      break;
+    }
+    case Card::Value::k4: {
+      os << '4';
+      break;
+    }
+    case Card::Value::k5: {
+      os << '5';
+      break;
+    }
+    case Card::Value::k6: {
+      os << '6';
+      break;
+    }
+    case Card::Value::k7: {
+      os << '7';
+      break;
+    }
+    case Card::Value::k8: {
+      os << '8';
+      break;
+    }
+    case Card::Value::k9: {
+      os << '9';
+      break;
+    }
+    case Card::Value::k10: {
+      os << "10";
+      break;
+    }
+    case Card::Value::kJ: {
+      os << 'J';
+      break;
+    }
+    case Card::Value::kQ: {
+      os << 'Q';
+      break;
+    }
+    case Card::Value::kK: {
+      os << 'K';
+      break;
+    }
+    case Card::Value::kA: {
+      os << 'A';
+      break;
+    }
+  }
+
+  switch (c.color) {
+    case Card::Color::kCub: {
+      os << 'C';
+      break;
+    }
+    case Card::Color::kDiamond: {
+      os << 'D';
+      break;
+    }
+    case Card::Color::kHeart: {
+      os << 'H';
+      break;
+    }
+    case Card::Color::kSpade: {
+      os << 'S';
+      break;
+    }
+  }
+
   return os;
 }
+

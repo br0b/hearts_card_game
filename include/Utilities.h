@@ -1,22 +1,65 @@
-//
-// Created by robert-grigoryan on 6/7/24.
-//
 #ifndef UTILITIES_H
 #define UTILITIES_H
 
 #include <netinet/in.h>
-
+#include <sys/socket.h>
 #include <string>
 
-#include "Error.h"
+#include "MaybeError.h"
 
 class Utilities {
 public:
-  static std::string getTimeStr();
-  static std::variant<sockaddr_in6, Error> getAddressFromFd(int socketfd);
-  static std::variant<std::string, Error> getStringFromAddress(
-      sockaddr_in6 address);
-  static std::variant<std::string, Error> getAddressStrFromFd(int socketfd);
+  struct Socket {
+    int fd;
+    in_port_t port;
+  };
+
+  [[nodiscard]] static MaybeError CreateAddress(
+      std::string host,
+      in_port_t port,
+      int addrFam,
+      struct sockaddr_storage &address);
+
+  // To bind to any port, pass s.port = 0.
+  [[nodiscard]] static MaybeError GetBoundSocket(int ai_family, Socket &s);
+
+  [[nodiscard]] static MaybeError ConnectSocket(
+      int remoteFd,
+      const struct sockaddr_storage &address);
+
+  [[nodiscard]] static MaybeError GetStringFromAddress(
+      const struct sockaddr_storage &address,
+      std::string &addressStr);
+
+  static std::string GetTimeStr();
+
+  [[nodiscard]] static MaybeError GetAddressFromFd(
+      int socketFd,
+      struct sockaddr_storage &address);
+
+  [[nodiscard]] static MaybeError GetAddressPair(int fd, std::string &local,
+                                                 std::string &remote);
+
+  [[nodiscard]] static MaybeError GetAddressStrFromFd(int socketFd,
+                                                      std::string &address);
+
+  [[nodiscard]] static MaybeError GetRemoteFromFd(int fd, std::string &address);
+
+  [[nodiscard]] static MaybeError GetPortFromFd(int fd, in_port_t &port);
+
+  [[nodiscard]] static MaybeError SetNonBlocking(int fd);
+
+  // Parse string to integer in range [l;r]. Return std::nullopt otherwise.
+  [[nodiscard]] static std::optional<int> ParseInt(std::string tr, int l,
+                                                   int r);
+
+private:
+  [[nodiscard]] static MaybeError GetIpFromAddress(
+      const struct sockaddr_storage &address,
+      std::string &ip);
+  [[nodiscard]] static MaybeError GetPortFromAddress(
+      const struct sockaddr_storage &address,
+      in_port_t &port);
 };
 
 #endif  // UTILITIES_H

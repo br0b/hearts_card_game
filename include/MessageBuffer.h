@@ -9,9 +9,12 @@
 
 class MessageBuffer {
 public:
-  MessageBuffer(int fd, std::vector<char> &buf, const std::string &separator);
+  MessageBuffer(std::vector<char> &buf, const std::string &separator);
 
   // Modify
+
+  [[nodiscard]] MaybeError SetSocket(int fd_);
+  void SetPipe(int fd_);
 
   // Reading from a closed socket is allowed only once.
   [[nodiscard]] MaybeError Receive();
@@ -20,7 +23,6 @@ public:
 
   void PushMessage(const std::string &msg);
   [[nodiscard]] MaybeError PopMessage(std::string &msg);
-
   void ClearIncoming();
 
   // Query
@@ -30,17 +32,28 @@ public:
   [[nodiscard]] bool ContainsMessage() const;
 
 private:
-  // Length without seperator.
+  // Argument msg should end with a seperator.
+  void ReportReceived(const std::string &msg);
+  // Argument msg should end with a seperator.
+  void ReportSent(const std::string &msg);
+  // Argument msg should end with a seperator.
+  void ReportMessage(const std::string &msg, const std::string &srcAddr,
+                     const std::string &dstAddr);
+
+  // Length with seperator.
   [[nodiscard]] std::optional<size_t> GetFirstMsgLength() const;
   [[nodiscard]] MaybeError AssertIsOpen() const;
 
-  int fd;
+  std::optional<int> fd;
+  std::optional<std::string> localAddress;
+  std::optional<std::string> remoteAddress;
   // Always ends with a null byte to make separator search easier.
   std::deque<char> incoming;
   std::deque<char> outgoing;
   std::vector<char> &buffer;
   const std::string separator;
   bool isOpen;
+  bool isLoggingOn;
 };
 
 #endif  // MESSAGE_H
