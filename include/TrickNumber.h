@@ -16,6 +16,9 @@ class TrickNumber {
 
  private:
   int number;
+
+  constexpr static int lowerBound = 1;
+  constexpr static int upperBound = 13;
 };
 
 #endif  // TRICK_NUMBER_H

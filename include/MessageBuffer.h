@@ -1,5 +1,5 @@
-#ifndef MESSAGE_H
-#define MESSAGE_H
+#ifndef MESSAGE_BUFFER_H
+#define MESSAGE_BUFFER_H
 
 #include <string>
 #include <deque>
@@ -30,17 +30,18 @@ public:
   [[nodiscard]] bool IsEmpty() const;
   [[nodiscard]] bool IsOpen() const;
   [[nodiscard]] bool ContainsMessage() const;
+  [[nodiscard]] const std::optional<std::string> &GetRemote() const;
 
 private:
-  // Argument msg should end with a seperator.
+  // Argument msg without a seperator.
   void ReportReceived(const std::string &msg);
-  // Argument msg should end with a seperator.
+  // Argument msg without a seperator.
   void ReportSent(const std::string &msg);
   // Argument msg should end with a seperator.
   void ReportMessage(const std::string &msg, const std::string &srcAddr,
                      const std::string &dstAddr);
 
-  // Length with seperator.
+  // Length without seperator.
   [[nodiscard]] std::optional<size_t> GetFirstMsgLength() const;
   [[nodiscard]] MaybeError AssertIsOpen() const;
 
@@ -53,7 +54,7 @@ private:
   std::vector<char> &buffer;
   const std::string separator;
   bool isOpen;
-  bool isLoggingOn;
+  bool isReportingOn;
 };
 
-#endif  // MESSAGE_H
+#endif  // MESSAGE_BUFFER_H

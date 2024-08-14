@@ -13,6 +13,15 @@ MaybeError TrickNumber::Parse(std::string str) {
   }
 }
 
+MaybeError TrickNumber::Set(int number_) {
+  if (number_ < lowerBound || number_ > upperBound) {
+    return Error::InvalidArgs("TrickNumber::Set");
+  }
+
+  number = number_;
+  return std::nullopt;
+}
+
 std::ostream& operator<<(std::ostream &os, const TrickNumber &x) {
   os << x.number;
   return os;

@@ -8,13 +8,13 @@
 int main() {
   const std::string separator = "\r\n";
   const size_t kBufferLen = 4096;
-  const time_t kTimeout(5000);
-  in_port_t port = 42000;
+  const std::chrono::milliseconds kTimeout(5000);
+  in_port_t port = 0;
   const int kMaxTcpQueueLen = 5;
 
   MaybeError error = std::nullopt;
   GameConfig config;
-  Server server(separator, kBufferLen, kMaxTcpQueueLen);
+  Server server(separator, kBufferLen, kTimeout);
 
   if (error = config.Set("config.txt"); error.has_value()) {
     Logger::Log(error.value()->GetMessage());
@@ -23,7 +23,7 @@ int main() {
 
   server.Configure(config.Get());
 
-  if (error = server.Listen(port, kTimeout); error.has_value()) {
+  if (error = server.Listen(port, kMaxTcpQueueLen); error.has_value()) {
     Logger::Log(error.value()->GetMessage());
     return 1;
   }

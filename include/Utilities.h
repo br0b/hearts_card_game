@@ -45,8 +45,6 @@ public:
   [[nodiscard]] static MaybeError GetAddressStrFromFd(int socketFd,
                                                       std::string &address);
 
-  [[nodiscard]] static MaybeError GetRemoteFromFd(int fd, std::string &address);
-
   [[nodiscard]] static MaybeError GetPortFromFd(int fd, in_port_t &port);
 
   [[nodiscard]] static MaybeError SetNonBlocking(int fd);
@@ -62,6 +60,7 @@ private:
   [[nodiscard]] static MaybeError GetPortFromAddress(
       const struct sockaddr_storage &address,
       in_port_t &port);
+  [[nodiscard]] static MaybeError GetRemoteFromFd(int fd, std::string &addressIPv6);
 };
 
 #endif  // UTILITIES_H

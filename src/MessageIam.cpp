@@ -18,6 +18,6 @@ MaybeError MessageIam::SetAfterMatch(std::smatch match) {
 }
 
 std::string MessageIam::GetPattern() {
-  return "^IAM[NESW]$";
+  return "^IAM([NESW])$";
 }
 

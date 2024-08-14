@@ -10,7 +10,7 @@
 
 class Message {
  public:
-  [[nodiscard]] std::optional<std::unique_ptr<Message>> Deserialize(
+  [[nodiscard]] static std::optional<std::unique_ptr<Message>> Deserialize(
       std::string str);
  
  private:

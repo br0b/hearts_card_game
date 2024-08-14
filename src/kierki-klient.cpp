@@ -7,9 +7,7 @@
 
 MaybeError GetClientConfig(std::unique_ptr<ClientConfig> &config) {
   Seat seat;
-  if (MaybeError error = seat.Set('N'); error.has_value()) {
-    return error;
-  }
+  seat.Set(Seat::Value::kN);
   config = std::make_unique<ClientConfig>("localhost", 42000,
                                           ConnectionProtocol::kIPv4, seat,
                                           true);

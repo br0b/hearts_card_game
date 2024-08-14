@@ -38,7 +38,8 @@ MaybeError Client::Connect(
   }
 
   pollfds.emplace_back(s.fd, POLLIN, 0);
-  return server.SetSocket(s.fd);
+  // TODO: Set messageBuffers.
+  return std::nullopt;
 }
 
 MaybeError Client::Run(bool isAutomatic) {

@@ -1,4 +1,5 @@
 #include "Message.h"
+#include <memory>
 #include "MessageBusy.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
@@ -11,21 +12,21 @@ std::optional<std::unique_ptr<Message>> Message::Deserialize(std::string str) {
   std::unique_ptr<Message> msg;
 
   if (str.compare(0, 4, "BUSY") == 0) {
-    *msg = MessageBusy();
+    msg = std::make_unique<MessageBusy>();
   } else if (str.compare(0, 4, "DEAL") == 0) {
-    *msg = MessageDeal();
+    msg = std::make_unique<MessageDeal>();
   } else if (str.compare(0, 3, "IAM") == 0) {
-    *msg = MessageIam();
+    msg = std::make_unique<MessageIam>();
   } else if (str.compare(0, 5, "TAKEN") == 0) {
-    *msg = MessageTaken();
+    msg = std::make_unique<MessageTaken>();
   } else if (str.compare(0, 5, "TOTAL") == 0) {
-    *msg = MessagePoints("TOTAL");
+    msg = std::make_unique<MessagePoints>("TOTAL");
   } else if (str.compare(0, 5, "TRICK") == 0) {
-    *msg = MessageTrick();
+    msg = std::make_unique<MessageTrick>();
   } else if (str.compare(0, 5, "SCORE") == 0) {
-    *msg = MessagePoints("SCORE");
+    msg = std::make_unique<MessagePoints>("SCORE");
   } else if (str.compare(0, 5, "WRONG") == 0) {
-    *msg = MessageWrong();
+    msg = std::make_unique<MessageWrong>();
   }
 
   if (msg.get() == nullptr || msg->Parse(str).has_value()) {

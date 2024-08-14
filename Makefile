@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -I$(INCLUDE_DIR) -Wall -Wextra -Wpedantic -O2 -std=c++20
+CXXFLAGS = -I$(INCLUDE_DIR) -Wall -Wextra -Wpedantic -std=c++20 -g
 
 # Project directories
 SRC_DIR = src

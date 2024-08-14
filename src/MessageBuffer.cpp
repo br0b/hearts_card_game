@@ -1,11 +1,11 @@
+#include <iostream>
 #include <memory>
 #include <sstream>
-#include "Logger.h"
-#include "MaybeError.h"
-#include "Utilities.h"
 #include <string.h>
 
+#include "MaybeError.h"
 #include "MessageBuffer.h"
+#include "Utilities.h"
 
 MessageBuffer::MessageBuffer(std::vector<char> &buf,
                              const std::string &separator)
@@ -18,6 +18,7 @@ MaybeError MessageBuffer::SetSocket(int fd_) {
 
   if (error = Utilities::GetAddressPair(fd_, lAddr, rAddr);
       error.has_value()) {
+    std::string str = error.value()->GetMessage();
     return error;
   }
 
@@ -25,14 +26,14 @@ MaybeError MessageBuffer::SetSocket(int fd_) {
   localAddress = std::move(lAddr);
   remoteAddress = std::move(rAddr);
   isOpen = true;
-  isLoggingOn = true;
+  isReportingOn = true;
   return std::nullopt;
 }
 
 void MessageBuffer::SetPipe(int fd_) {
   fd = fd_;
   isOpen = true;
-  isLoggingOn = false;
+  isReportingOn = false;
 }
 
 MaybeError MessageBuffer::Receive() {
@@ -84,7 +85,7 @@ MaybeError MessageBuffer::Send() {
 void MessageBuffer::PushMessage(const std::string &msg) {
   std::string msgSep = msg + separator;
   outgoing.insert(outgoing.end(), msgSep.begin(), msgSep.end());
-  if (isLoggingOn) {
+  if (isReportingOn) {
     ReportSent(msgSep);
   }
 }
@@ -100,8 +101,8 @@ MaybeError MessageBuffer::PopMessage(std::string &msg) {
   msg.insert(msg.begin(), incoming.begin(), incoming.begin() + len.value());
   incoming.erase(incoming.begin(),
                  incoming.begin() + len.value() + separator.size());
-  if (isLoggingOn) {
-    ReportReceived(msg + separator);
+  if (isReportingOn) {
+    ReportReceived(msg);
   }
   return std::nullopt;
 }
@@ -122,6 +123,10 @@ bool MessageBuffer::ContainsMessage() const {
   return GetFirstMsgLength().has_value();
 }
 
+const std::optional<std::string> &MessageBuffer::GetRemote() const {
+  return remoteAddress;
+}
+
 void MessageBuffer::ReportReceived(const std::string &msg) {
   ReportMessage(msg, remoteAddress.value(), localAddress.value());
 }
@@ -134,8 +139,9 @@ void MessageBuffer::ReportMessage(const std::string &msg,
                                   const std::string &srcAddr,
                                   const std::string &dstAddr) {
   std::ostringstream oss;
-  oss << "[" << srcAddr << "," << dstAddr << "," << Utilities::GetTimeStr() << "] " << msg;
-  Logger::Report(oss.str());
+  oss << "[" << srcAddr << "," << dstAddr << ","
+      << Utilities::GetTimeStr() << "] " << msg << separator;
+  std::cout << oss.str();
 }
 
 std::optional<size_t> MessageBuffer::GetFirstMsgLength() const {
@@ -144,12 +150,13 @@ std::optional<size_t> MessageBuffer::GetFirstMsgLength() const {
     return std::nullopt;
   }
   
-  return static_cast<size_t>(cFind - &incoming[0]) + separator.size();
+  return static_cast<size_t>(cFind - &incoming[0]);
 }
 
 MaybeError MessageBuffer::AssertIsOpen() const {
   if (!isOpen) {
-    return std::make_unique<Error>("The buffer is closed.");
+    return std::make_unique<Error>("MessageBuffer::AssertIsOpen",
+                                   "The buffer is closed.");
   }
   return std::nullopt;
 }

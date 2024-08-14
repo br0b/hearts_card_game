@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <fcntl.h>
@@ -27,13 +28,14 @@ MaybeError ConnectionStore::Listen(in_port_t port, int maxTcpQueueLen) {
   MaybeError error = std::nullopt;
   Utilities::Socket s = {-1, port};
 
-  if (error = Utilities::GetBoundSocket(AF_INET6, s);
-      error.has_value()) {
+  if (error = Utilities::GetBoundSocket(AF_INET6, s); error.has_value()) {
+    std::string str = error.value()->GetMessage();
     return error;
   }
 
-  if (listen(s.fd, maxTcpQueueLen) < 0) {
-    return Error::FromErrno("listen");
+  int ret = listen(s.fd, maxTcpQueueLen);
+  if (ret < 0) {
+    return Error::FromErrno("ConnectionStore::Listen");
   }
 
   // Get actual port.
@@ -52,6 +54,11 @@ MaybeError ConnectionStore::Listen(in_port_t port, int maxTcpQueueLen) {
 MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
   MaybeError error = std::nullopt;
 
+  if (debugMode) {
+    Logger::Report("Update. Timeout: " + std::to_string(timeout));
+    ReportUpdateData(data);
+  }
+
   if (error = PrePoll(data); error.has_value()) {
     return error;
   }
@@ -59,7 +66,7 @@ MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
   int pollRes = poll(&pollfds[0], pollfds.size(), timeout);
 
   if (pollRes < 0) {
-    return Error::FromErrno("poll");
+    return Error::FromErrno("ConnectionStore::Update");
   }
 
   if (pollRes > 0) {
@@ -72,7 +79,16 @@ MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
     }
   }
 
+  if (debugMode) {
+    Logger::Report("Update results");
+    ReportUpdateData(data);
+  }
+
   return std::nullopt;
+}
+
+void ConnectionStore::EnableDebug() {
+  debugMode = true;
 }
 
 MaybeError ConnectionStore::PrePoll(UpdateData &input) {
@@ -86,7 +102,9 @@ MaybeError ConnectionStore::PrePoll(UpdateData &input) {
     return error;
   }
 
-  StopReceiving(input.closed); error.has_value();
+  if (error = StopReceiving(input.closed); error.has_value()) {
+    return error;
+  }
 
   return std::nullopt;
 }
@@ -103,14 +121,24 @@ MaybeError ConnectionStore::Send(
   return std::nullopt;
 }
 
-void ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
+MaybeError ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
+  MaybeError error;
+
   for (size_t id : ids) {
     pollfds[id + 1].events &= ~POLLIN;
     connections[id]->ClearIncoming();
+    if (!connections[id]->IsEmpty()) {
+      continue;
+    }
+    if (error = Pop(pollfds[id + 1].fd); error.has_value()) {
+      return error;
+    }
   }
+
+  return std::nullopt;
 }
 
-// TODO: Move nested code to ConnectionStore::UpdateBuffer.
+// TODO: Move nested code to UpdateIncoming and UpdateOutgoing.
 MaybeError ConnectionStore::UpdateBuffers(UpdateData &output) {
   std::string message = "";
   MaybeError error = std::nullopt;
@@ -177,13 +205,14 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
 
   int fd = accept(pollfds[0].fd, (sockaddr *)&addr, &addrlen);
   if (fd < 0) {
-    return Error::FromErrno("accept");
+    return Error::FromErrno("ConnectionStore::UpdateListening");
   }
   
   if (addrlen > sizeof(addr)) {
     std::ostringstream oss;
     oss << "Socket " << fd << " has size bigger than sockaddr_storage";
-    return std::make_unique<Error>("ConnectionStore::UpdateListening", oss.str());
+    return std::make_unique<Error>("ConnectionStore::UpdateListening",
+                                   oss.str());
   }
 
   if (error = Push(fd); error.has_value()) {
@@ -191,6 +220,16 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
   }
 
   opened = fd;
+  if (debugMode) {
+    std::optional<std::string> addr = connections.at(fdMap[fd])->GetRemote();
+    if (!addr.has_value()) {
+      return std::make_unique<Error>("ConnectionStore::UpdateListening",
+                                     "No remote address.");
+      return error;
+    }
+    std::ostringstream oss;
+    oss << "New connection (fd: "<< fd << ", addr: " << addr.value() << ')';
+  }
   return std::nullopt;
 }
 
@@ -201,32 +240,29 @@ MaybeError ConnectionStore::Push(int fd) {
     return std::make_unique<Error>("ConnectionStore::Push", oss.str());
   }
 
-  fdMap.emplace(fd, connections.size());
   pollfds.emplace_back(fd, POLLIN, 0);
   connections.push_back(std::make_unique<MessageBuffer>(buffer, separator));
+  fdMap.emplace(fd, connections.size() - 1);
   return connections.back()->SetSocket(fd);
 }
 
 MaybeError ConnectionStore::Pop(int fd) {
-  MaybeError error = std::nullopt;
   size_t id = 0;
-
-  if (error = GetId(fd, id); error.has_value()) {
+  if (MaybeError error = GetId(fd, id); error.has_value()) {
     return error;
   }
 
-  close(fd);
-
-  if (connections.size() > 1) {
+  if (connections.size() > 1 && id != connections.size() - 1) {
     // Move last connection to trueIndex.
     pollfds[id + 1] = std::move(pollfds.back());
     connections[id] = std::move(connections.back());
-    fdMap[connections.size() - 1] = id;
+    fdMap.at(pollfds.back().fd) = id;
   }
+
   pollfds.pop_back();
   connections.pop_back();
-  fdMap.erase(connections.size() - 1);
-
+  fdMap.erase(fd);
+  close(fd);
   return std::nullopt;
 }
 
@@ -234,7 +270,7 @@ MaybeError ConnectionStore::GetId(int fd, size_t &id) const {
   if (!fdMap.contains(fd)) {
     std::ostringstream oss;
     oss << "Socket " << fd << " not in store.";
-    return std::make_unique<Error>("ConnectionStore::Pop", oss.str());
+    return std::make_unique<Error>("ConnectionStore::GetId", oss.str());
   }
 
   id = fdMap.at(fd);
@@ -257,5 +293,24 @@ MaybeError ConnectionStore::Convert(UpdateData &data) const {
   }
 
   return std::nullopt;
+}
+
+void ConnectionStore::ReportUpdateData(const UpdateData &data) const {
+  std::ostringstream oss;
+
+  oss<< "Messages: ";
+  for (const auto &msg : data.msgs) {
+    oss << '(' << msg.id << ", " << msg.content << "), ";
+  }
+
+  oss << "Opened: " << (data.opened.has_value() ?
+                        std::to_string(data.opened.value()) + " " : "")
+        << "Closed: ";
+  
+  for (auto c : data.closed) {
+    oss << c << ", ";
+  }
+
+  Logger::Report(oss.str());
 }
 

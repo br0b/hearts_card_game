@@ -13,10 +13,13 @@
 class ConnectionStore {
  public:
   struct Message {
+    // If argument, then fd. Internally a vector index.
     size_t id;
     std::string content;
   };
 
+  // When as an argument: a connection can be in closed or msgs or both.
+  // When returned: a connection can't be only in msgs xor opened xor closed.
   struct UpdateData {
     std::vector<Message> msgs;
     std::optional<int> opened;
@@ -34,10 +37,12 @@ class ConnectionStore {
   // Return received messages and closed ids in the same argument.
   [[nodiscard]] MaybeError Update(UpdateData &data, time_t timeout);
 
+  void EnableDebug();
+
 private:
   [[nodiscard]] MaybeError PrePoll(UpdateData &input);
   [[nodiscard]] MaybeError Send(const std::vector<Message> &pending);
-  void StopReceiving(const std::vector<size_t> &fds);
+  [[nodiscard]] MaybeError StopReceiving(const std::vector<size_t> &fds);
   [[nodiscard]] MaybeError UpdateBuffers(UpdateData &output);
   // Put new client fd in opened.
   [[nodiscard]] MaybeError UpdateListening(std::optional<int> &opened);
@@ -61,6 +66,8 @@ private:
   // TODO: Replace with ConvertInput and ConvertOutput.
   [[nodiscard]] MaybeError Convert(UpdateData &data) const;
 
+  void ReportUpdateData(const UpdateData &data) const;
+
   // First pollfd is reserved for a listening socket.
   std::vector<pollfd> pollfds;
   std::vector<std::unique_ptr<MessageBuffer>> connections;
@@ -70,6 +77,7 @@ private:
   // Buffer used for read/write operations.
   std::vector<char> buffer;
   std::unordered_map<int, size_t> fdMap;
+  bool debugMode;
 };
 
 #endif  // CONNECTION_STORE_H

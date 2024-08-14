@@ -10,7 +10,8 @@ class Hand {
   // Get all cards from string.
   void Parse(std::string str);
 
-  void Set(std::vector<Card> cards_);
+  template <typename Iterator>
+  void Set(Iterator begin, Iterator end);
 
   [[nodiscard]] const std::vector<Card>& Get() const;
 

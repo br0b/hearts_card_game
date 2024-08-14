@@ -15,8 +15,10 @@ void Hand::Parse(std::string str) {
   }
 }
 
-void Hand::Set(std::vector<Card> cards_) {
-  cards = std::move(cards_);
+template <typename Iterator>
+void Hand::Set(Iterator begin, Iterator end) {
+  cards.clear();
+  cards.insert(cards.begin(), begin, end);
 }
 
 const std::vector<Card>& Hand::Get() const {
@@ -29,4 +31,7 @@ std::ostream& operator<<(std::ostream &os, const Hand &dt) {
   }
   return os;
 }
+
+template void Hand::Set<std::array<Card, 4>::iterator>(std::array<Card, 4>::iterator begin, std::array<Card, 4>::iterator end);
+template void Hand::Set<std::vector<Card>::iterator>(std::vector<Card>::iterator begin, std::vector<Card>::iterator end);
 

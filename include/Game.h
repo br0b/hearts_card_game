@@ -2,16 +2,19 @@
 #define GAME_H
 
 #include <functional>
+#include <memory>
 #include <unordered_set>
 
 #include "Card.h"
 #include "DealConfig.h"
+#include "MaybeError.h"
 
 class Game {
  public:
   struct Trick {
     std::vector<Card> cards;
     int number;
+    Seat turn;
   };
 
   struct TrickResult {
@@ -19,10 +22,8 @@ class Game {
     int points;
   };
 
-  Game();
-
-  std::optional<TrickResult> Play(Card card);
-  void Deal(DealConfig &config);
+  [[nodiscard]] MaybeError Play(Card card, std::optional<TrickResult> &result);
+  [[nodiscard]] MaybeError Deal(DealConfig &config);
 
   // Assumes there is an ongoing deal.
   // Move is legal when the player has the card and
@@ -34,9 +35,11 @@ class Game {
   //      the first card in the trick.
   [[nodiscard]] bool IsMoveLegal(Seat player, Card card) const;
 
+  [[nodiscard]] const std::optional<Trick> &GetCurrentTrick() const;
+
  private:
   // Assumes currentTurn is equal to the first player of the trick.
-  [[nodiscard]] Seat GetTaker() const;
+  [[nodiscard]] MaybeError GetTaker(Seat &taker) const;
 
   [[nodiscard]] static int TricksBadJudge(const Trick &trick);
 
@@ -52,8 +55,10 @@ class Game {
 
   [[nodiscard]] static int RobberJudge(const Trick &trick);
 
-  Seat currentTurn;
-  Trick currentTrick;
+  [[nodiscard]] static std::unique_ptr<Error> NotStarted(std::string funName);
+
+  // If currentTrick.number = 0 me
+  std::optional<Trick> currentTrick;
   std::array<std::array<std::unordered_set<Card>, 4>, 4> hands;
   std::function<int(const Trick&)> trickJudge;
 };

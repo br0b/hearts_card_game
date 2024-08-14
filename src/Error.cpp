@@ -4,40 +4,24 @@
 
 #include "Error.h"
 
-Error::Error() = default;
+Error::Error(std::string funName, std::string message)
+    : funName(std::move(funName)), message(std::move(message)) {}
 
-Error::Error(std::string message) : message(std::move(message)) {}
+void Error::SetFunName(std::string funName_) {
+  funName = funName_;
+}
 
-Error::Error(std::string funName, std::string message) {
+std::unique_ptr<Error> Error::FromErrno(std::string funName_) {
+  return std::make_unique<Error>(std::move(funName_), strerror(errno));
+}
+
+std::unique_ptr<Error> Error::InvalidArgs(std::string funName_) {
+  return std::make_unique<Error>(std::move(funName_), "Invalid argument.");
+}
+
+std::string Error::GetMessage() const {
   std::ostringstream oss;
-  oss << "ERROR: " << std::move(funName) << " " << std::move(message);
-  Error(oss.str());
-}
-
-Error::~Error() = default;
-
-std::unique_ptr<Error> Error::FromErrno(std::string funName) {
-  std::string msg(*CreateErrMsgFromErrno(std::move(funName)));
-  return std::make_unique<Error>();
-}
-
-std::unique_ptr<Error> Error::InvalidArgs(std::string funName) {
-  return std::make_unique<Error>(std::move(funName), "Invalid arguments.");
-}
-
-const std::string& Error::GetMessage() const {
-  return message;
-}
-
-bool Error::IsCritical() const {
-  return false;
-}
-
-std::unique_ptr<std::string> Error::CreateErrMsgFromErrno(
-    std::string funName) {
-  std::ostringstream oss;
-  oss << "ERROR: " << std::move(funName) << " "
-      << std::string(strerror(errno));
-  return std::make_unique<std::string>(oss.str());
+  oss << "ERROR: " << funName << " - " << message;
+  return oss.str();
 }
 

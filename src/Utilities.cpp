@@ -130,6 +130,7 @@ MaybeError Utilities::GetAddressFromFd(
     int socketFd,
     struct sockaddr_storage &address) {
   socklen_t len = sizeof(address);
+  memset(&address, 0, len);
   if (getsockname(socketFd, (struct sockaddr *)&address, &len) < 0) {
     return Error::FromErrno("getsockname");
   }
@@ -158,13 +159,11 @@ MaybeError Utilities::GetAddressStrFromFd(
   struct sockaddr_storage addr;
   MaybeError error;
 
-  error = GetAddressFromFd(socketFd, addr);
-  if (error.has_value()) {
+  if (error = GetAddressFromFd(socketFd, addr); error.has_value()) {
     return error;
   }
 
-  error = GetStringFromAddress(addr, address);
-  if (error.has_value()) {
+  if (error = GetStringFromAddress(addr, address); error.has_value()) {
     return error;
   }
   
@@ -173,8 +172,9 @@ MaybeError Utilities::GetAddressStrFromFd(
 
 MaybeError Utilities::GetRemoteFromFd(int fd, std::string &address) {
   sockaddr_storage addr;
-  socklen_t len;
+  socklen_t len = sizeof(addr);
 
+  memset(&addr, 0, len);
   if (getpeername(fd, (sockaddr *)&addr, &len) < 0) {
     return Error::FromErrno("getpeername");
   }
@@ -208,18 +208,15 @@ MaybeError Utilities::SetNonBlocking(int fd) {
 MaybeError Utilities::GetIpFromAddress(
     const struct sockaddr_storage &address,
     std::string &ipStr) {
-  std::unique_ptr<char[]> cStr;
-  socklen_t addrLen;
+  std::array<char, INET6_ADDRSTRLEN> cStr;
   const void *addr = nullptr;
 
   switch (address.ss_family) {
     case AF_INET: {
-      addrLen = INET_ADDRSTRLEN;
       addr = &reinterpret_cast<const struct sockaddr_in&>(address).sin_addr;
       break;
     }
     case AF_INET6: {
-      addrLen = INET6_ADDRSTRLEN;
       addr = &reinterpret_cast<const struct sockaddr_in6&>(address).sin6_addr;
       break;
     }
@@ -229,12 +226,11 @@ MaybeError Utilities::GetIpFromAddress(
     }
   }
 
-  cStr = std::make_unique<char[]>(addrLen);
-  if (inet_ntop(address.ss_family, addr, cStr.get(), addrLen) == NULL) {
+  if (inet_ntop(address.ss_family, addr, &cStr[0], cStr.size()) == NULL) {
     return Error::FromErrno("inet_ntop");
   }
 
-  ipStr = cStr.get();
+  ipStr = &cStr[0];
   return std::nullopt;
 }
 

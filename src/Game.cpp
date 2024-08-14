@@ -1,32 +1,54 @@
-#include "Game.h"
+#include <memory>
+#include <optional>
+
 #include "DealType.h"
+#include "Error.h"
+#include "MaybeError.h"
+#include "Game.h"
 
-Game::Game() : currentTrick{{}, 1} {}
+MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
+  if (!currentTrick.has_value()) {
+    return NotStarted("Game::Play");
+  } else if (!hands[currentTrick.value().turn.GetIndex()][card.GetColorIndex()]
+      .contains(card)) {
+    return std::make_unique<Error>("Game::Play",
+                                   "Player doesn't have the card.");
+  }
 
-std::optional<Game::TrickResult> Game::Play(Card card) {
-  currentTrick.cards.push_back(card);
-  hands[static_cast<size_t>(currentTurn.Get())][card.GetColorIndex()]
+  currentTrick.value().cards.push_back(card);
+  hands[currentTrick.value().turn.GetIndex()][card.GetColorIndex()]
     .erase(card);
-  currentTurn.CycleClockwise();
+  currentTrick.value().turn.CycleClockwise();
 
-  if (currentTrick.cards.size() < 4) {
+  if (currentTrick.value().cards.size() < 4) {
+    result = std::nullopt;
     return std::nullopt;
   }
 
   // Trick finished.
-  TrickResult res;
-  res.taker = GetTaker();
-  res.points = trickJudge(currentTrick);
-  currentTurn = res.taker;
-  currentTrick.cards.clear();
-  currentTrick.number++;
-  return res;
+  result = TrickResult();
+  result.value().points = trickJudge(currentTrick.value());
+  if (MaybeError error = GetTaker(result.value().taker); error.has_value()) {
+    return error;
+  }
+  
+  if (currentTrick.value().number < 13) {
+    currentTrick.value().turn = result.value().taker;
+    currentTrick.value().cards.clear();
+    currentTrick.value().number++;
+  } else {
+    currentTrick = std::nullopt;
+  }
+
+  return std::nullopt;
 }
 
-void Game::Deal(DealConfig &config) {
-  currentTurn = config.GetFirst();
-  currentTrick.cards.clear();
-  currentTrick.number = 1;
+MaybeError Game::Deal(DealConfig &config) {
+  if (currentTrick.has_value()) {
+    return std::make_unique<Error>("Game::Deal", "There is an ongoing deal.");
+  }
+
+  currentTrick = std::make_optional<Trick>({{}, 1, config.GetFirst()});
 
   for (size_t i = 0; i < 4; i++) {
     for (const Card &c : config.GetHands()[i].Get()) {
@@ -64,39 +86,49 @@ void Game::Deal(DealConfig &config) {
       break;
     }
   };
+
+  return std::nullopt;
 }
 
 bool Game::IsMoveLegal(Seat player, Card card) const {
-  if (!hands[player.GetIndex()][card.GetColorIndex()].contains(card)) {
+  if (!currentTrick.has_value()
+      || !hands[player.GetIndex()][card.GetColorIndex()].contains(card)) {
     return false;
   }
 
-  if (currentTrick.cards.empty()) {
+  if (currentTrick.value().cards.empty()) {
     return true;
   }
 
-  Card firstCard = currentTrick.cards.back();
+  Card firstCard = currentTrick.value().cards.front();
   return card.GetColor() == firstCard.GetColor()
          || hands[player.GetIndex()][firstCard.GetColorIndex()].empty();
 }
 
-Seat Game::GetTaker() const {
-  auto card = currentTrick.cards.begin();
-  Card first = *card;
-  Seat player = currentTurn;
-  Seat taker = player;
-  card++;
+const std::optional<Game::Trick> &Game::GetCurrentTrick() const {
+  return currentTrick;
+}
+
+MaybeError Game::GetTaker(Seat &taker) const {
+  if (!currentTrick.has_value()) {
+    return NotStarted("Game::GetTaker");
+  }
+
+  auto first = currentTrick.value().cards.begin();
+  Seat player = currentTrick.value().turn;
+  taker = player;
   player.CycleClockwise();
 
-  for (; card != currentTrick.cards.end(); card++) {
-    if (card->GetColor() == first.GetColor()
-        && card->GetValue() > first.GetValue()) {
+  for (auto card = first + 1; card != currentTrick.value().cards.end();
+       card++) {
+    if (card->GetColor() == first->GetColor()
+        && card->GetValue() > first->GetValue()) {
       taker = player;
     }
     player.CycleClockwise();
   }
 
-  return taker;
+  return std::nullopt;
 }
 
 int Game::TricksBadJudge(const Game::Trick &trick) {
@@ -166,5 +198,10 @@ int Game::RobberJudge(const Game::Trick &trick) {
     + GentlemenBadJudge(trick)
     + KingOfHeartsBadJudge(trick)
     + SeventhAndLastTrickBadJudge(trick);
+}
+
+std::unique_ptr<Error> Game::NotStarted(std::string funName) {
+  return std::make_unique<Error>(std::move(funName),
+                                 "Game hasn't started yet.");
 }
 
