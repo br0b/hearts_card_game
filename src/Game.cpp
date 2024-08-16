@@ -4,6 +4,7 @@
 #include "DealType.h"
 #include "Error.h"
 #include "MaybeError.h"
+#include "TrickNumber.h"
 #include "Game.h"
 
 MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
@@ -14,6 +15,8 @@ MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
     return std::make_unique<Error>("Game::Play",
                                    "Player doesn't have the card.");
   }
+
+  int trickNumber = currentTrick.value().number.Get();
 
   currentTrick.value().cards.push_back(card);
   hands[currentTrick.value().turn.GetIndex()][card.GetColorIndex()]
@@ -32,12 +35,15 @@ MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
     return error;
   }
   
-  if (currentTrick.value().number < 13) {
+  if (trickNumber < 13) {
     currentTrick.value().turn = result.value().taker;
     currentTrick.value().cards.clear();
-    currentTrick.value().number++;
+    if (MaybeError error = currentTrick.value().number.Set(trickNumber + 1);
+        error.has_value()) {
+      return error;
+    }
   } else {
-    currentTrick = std::nullopt;
+    currentTrick.reset();
   }
 
   return std::nullopt;
@@ -48,7 +54,13 @@ MaybeError Game::Deal(DealConfig &config) {
     return std::make_unique<Error>("Game::Deal", "There is an ongoing deal.");
   }
 
-  currentTrick = std::make_optional<Trick>({{}, 1, config.GetFirst()});
+  TrickNumber trickNumber;
+  if (MaybeError error = trickNumber.Set(1); error.has_value()) {
+    return error;
+  }
+
+  currentTrick = std::make_optional<Trick>({{}, trickNumber,
+                                           config.GetFirst()});
 
   for (size_t i = 0; i < 4; i++) {
     for (const Card &c : config.GetHands()[i].Get()) {
@@ -186,7 +198,7 @@ int Game::KingOfHeartsBadJudge(const Game::Trick &trick) {
 }
 
 int Game::SeventhAndLastTrickBadJudge(const Game::Trick &trick) {
-  int n = trick.number;
+  int n = trick.number.Get();
   return (n == 7 || n == 13) ? 10 : 0;
 }
 

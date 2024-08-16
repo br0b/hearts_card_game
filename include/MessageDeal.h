@@ -15,12 +15,11 @@ class MessageDeal final : public Message {
   DealType GetType() const;
   Seat GetFirst() const;
   const Hand& GetHand() const;
-
-  friend std::ostream& operator<<(std::ostream &os, const MessageDeal &msg);
+  [[nodiscard]] std::string Str() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;
-  [[nodiscard]] std::string GetPattern() override;
+  [[nodiscard]] std::string GetPattern() const override;
 
   DealType type;
   Seat first;

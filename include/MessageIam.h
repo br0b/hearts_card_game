@@ -9,12 +9,11 @@ class MessageIam final : public Message {
   void SetSeat(Seat seat_);
 
   [[nodiscard]] Seat GetSeat() const;
-
-  friend std::ostream& operator<<(std::ostream &os, const MessageIam &msg);
+  [[nodiscard]] std::string Str() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;
-  [[nodiscard]] std::string GetPattern() override;
+  [[nodiscard]] std::string GetPattern() const override;
 
   Seat seat;
 };

@@ -2,7 +2,6 @@
 #define MESSAGE_H
 
 #include <memory>
-#include <optional>
 #include <regex>
 #include <string>
 
@@ -10,13 +9,15 @@
 
 class Message {
  public:
-  [[nodiscard]] static std::optional<std::unique_ptr<Message>> Deserialize(
-      std::string str);
+  // Returns null if str is not a valid message.
+  [[nodiscard]] static std::unique_ptr<Message> Deserialize(std::string str);
+  friend std::ostream &operator<<(std::ostream &os, const Message &msg);
+  [[nodiscard]] virtual std::string Str() const = 0;
  
  private:
   [[nodiscard]] MaybeError Parse(std::string str);
   [[nodiscard]] virtual MaybeError SetAfterMatch(std::smatch match) = 0;
-  [[nodiscard]] virtual std::string GetPattern() = 0;
+  [[nodiscard]] virtual std::string GetPattern() const = 0;
 };
 
 #endif  // MESSAGE_H

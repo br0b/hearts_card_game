@@ -12,12 +12,11 @@ class MessageBusy final : public Message {
   void SetSeats(std::vector<Seat> seats_);
 
   [[nodiscard]] const std::vector<Seat>& GetSeats() const;
-
-  friend std::ostream& operator<<(std::ostream &os, const MessageBusy &msg);
+  [[nodiscard]] std::string Str() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;
-  [[nodiscard]] std::string GetPattern() override;
+  [[nodiscard]] std::string GetPattern() const override;
 
   std::vector<Seat> seats;
 };

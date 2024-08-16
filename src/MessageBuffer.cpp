@@ -36,13 +36,13 @@ void MessageBuffer::SetPipe(int fd_) {
   isReportingOn = false;
 }
 
-MaybeError MessageBuffer::Receive() {
+MaybeError MessageBuffer::Receive(Result &res) {
   if (MaybeError error = AssertIsOpen(); error.has_value()) {
     return std::make_unique<Error>("MessageBuffer::Receive",
                                    error.value()->GetMessage());
   }
 
-  int ret = read(fd.value(), &buffer[0], sizeof(buffer));
+  int ret = read(fd.value(), buffer.data(), sizeof(buffer));
   
   if (ret == -1) {
     return Error::FromErrno("read");
@@ -51,27 +51,35 @@ MaybeError MessageBuffer::Receive() {
   if (ret == 0) {
     // Disconnect
     isOpen = false;
+    res.SetClosed();
+    return std::nullopt;
   }
 
   // Keep the null byte.
   incoming.insert(incoming.end() - 1, buffer.begin(), buffer.begin() + ret);
 
+  res.SetOpen(PopMessage());
   return std::nullopt;
 }
 
-MaybeError MessageBuffer::Send() {
+MaybeError MessageBuffer::Send(Result &res) {
   if (MaybeError error = AssertIsOpen(); error.has_value()) {
     return std::make_unique<Error>("MessageBuffer::Send",
                                    error.value()->GetMessage());
   }
 
   size_t len = std::min(outgoing.size(), buffer.size());
-  int ret = write(fd.value(), &outgoing[0], len);
+  buffer.clear();
+  buffer.insert(buffer.begin(), outgoing.begin(), outgoing.begin() + len);
+
+  int ret = write(fd.value(), buffer.data(), len);
 
   if (ret == -1) {
     if (errno == EPIPE) {
       // Disconnect
       isOpen = false;
+      res.SetClosed();
+      return std::nullopt;
     } else {
       return Error::FromErrno("write");
     }
@@ -79,6 +87,7 @@ MaybeError MessageBuffer::Send() {
 
   outgoing.erase(outgoing.begin(), outgoing.begin() + ret);
 
+  res.SetOpen(std::nullopt);
   return std::nullopt;
 }
 
@@ -90,21 +99,21 @@ void MessageBuffer::PushMessage(const std::string &msg) {
   }
 }
 
-MaybeError MessageBuffer::PopMessage(std::string &msg) {
-  msg.clear();
+std::optional<std::string> MessageBuffer::PopMessage() {
   auto len = GetFirstMsgLength();
   
   if (!len.has_value()) {
-    return std::make_unique<Error>("MessageBuffer::PopMessage", "No message.");
+    return std::nullopt;
   }
 
+  std::string msg;
   msg.insert(msg.begin(), incoming.begin(), incoming.begin() + len.value());
   incoming.erase(incoming.begin(),
                  incoming.begin() + len.value() + separator.size());
   if (isReportingOn) {
-    ReportReceived(msg);
+    ReportReceived(msg + separator);
   }
-  return std::nullopt;
+  return msg;
 }
 
 void MessageBuffer::ClearIncoming() {
@@ -113,14 +122,6 @@ void MessageBuffer::ClearIncoming() {
 
 bool MessageBuffer::IsEmpty() const {
   return (incoming.size() == 1) && outgoing.empty();
-}
-
-bool MessageBuffer::IsOpen() const {
-  return isOpen;
-}
-
-bool MessageBuffer::ContainsMessage() const {
-  return GetFirstMsgLength().has_value();
 }
 
 const std::optional<std::string> &MessageBuffer::GetRemote() const {
@@ -140,7 +141,7 @@ void MessageBuffer::ReportMessage(const std::string &msg,
                                   const std::string &dstAddr) {
   std::ostringstream oss;
   oss << "[" << srcAddr << "," << dstAddr << ","
-      << Utilities::GetTimeStr() << "] " << msg << separator;
+      << Utilities::GetTimeStr() << "] " << msg;
   std::cout << oss.str();
 }
 
@@ -159,5 +160,29 @@ MaybeError MessageBuffer::AssertIsOpen() const {
                                    "The buffer is closed.");
   }
   return std::nullopt;
+}
+
+void MessageBuffer::Result::SetOpen(std::optional<std::string> message_) {
+  message = std::move(message_);
+  isClosed = false;
+}
+
+void MessageBuffer::Result::SetClosed() {
+  message.reset();
+  isClosed = true;
+}
+
+MaybeError MessageBuffer::Result::GetMessage(std::optional<std::string> &message_) const {
+  if (isClosed) {
+    return std::make_unique<Error>("MessageBuffer::Result::GetMessage",
+                                   "The buffer is closed.");
+  }
+
+  message_ = message;
+  return std::nullopt;
+}
+
+bool MessageBuffer::Result::IsClosed() const {
+  return isClosed;
 }
 

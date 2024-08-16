@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include "MessageIam.h"
 
 void MessageIam::SetSeat(Seat seat_) {
@@ -8,16 +10,17 @@ Seat MessageIam::GetSeat() const {
   return seat;
 }
 
-std::ostream& operator<<(std::ostream &os, const MessageIam &msg) {
-  os << "IAM" << msg.seat;
-  return os;
+std::string MessageIam::Str() const {
+  std::ostringstream oss;
+  oss << "IAM" << seat;
+  return oss.str();
 }
 
 MaybeError MessageIam::SetAfterMatch(std::smatch match) {
   return seat.Parse(match[1]);
 }
 
-std::string MessageIam::GetPattern() {
+std::string MessageIam::GetPattern() const {
   return "^IAM([NESW])$";
 }
 

@@ -9,16 +9,17 @@ void MessageWrong::SetTrickNumber(TrickNumber trickNumber_) {
   return trickNumber;
 }
 
-std::ostream &operator<<(std::ostream &os, const MessageWrong &msg) {
-  os << "WRONG" << msg.trickNumber;
-  return os;
+std::string MessageWrong::Str() const {
+  std::ostringstream oss;
+  oss << "WRONG" << trickNumber;
+  return oss.str();
 }
 
 MaybeError MessageWrong::SetAfterMatch(std::smatch match) {
   return trickNumber.Parse(match[1]);
 }
 
-std::string MessageWrong::GetPattern() {
+std::string MessageWrong::GetPattern() const {
   return "^WRONG([1-9]|1[0-3])$";
 }
 

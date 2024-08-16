@@ -5,6 +5,10 @@
 
 MessagePoints::MessagePoints(std::string header) : header(header) {}
 
+void MessagePoints::SetHeader(std::string header_) {
+  header = header_;
+}
+
 void MessagePoints::SetPoints(std::array<int, 4> points_) {
   points = std::move(points_);
 }
@@ -13,16 +17,17 @@ const std::array<int, 4> &MessagePoints::GetPoints() const {
   return points;
 }
 
-std::ostream &operator<<(std::ostream &os, const MessagePoints &msg) {
+std::string MessagePoints::Str() const {
   Seat seat;
+  std::ostringstream oss;
 
-  os << msg.header;
-  for (int p : msg.points) {
-    os << seat << p;
+  oss << header;
+  for (int p : points) {
+    oss << seat << p;
     seat.CycleClockwise();
   }
 
-  return os;
+  return oss.str();
 }
 
 MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
@@ -58,7 +63,7 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string MessagePoints::GetPattern() { 
+std::string MessagePoints::GetPattern() const { 
   return "^" + header + "((?:[NESW](?:0|[1-9][0-9]*)){4})$";
 }
 

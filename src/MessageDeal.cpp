@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include "MessageDeal.h"
 #include "DealType.h"
 #include "MaybeError.h"
@@ -26,9 +28,10 @@ const Hand& MessageDeal::GetHand() const {
   return hand;
 }
 
-std::ostream& operator<<(std::ostream &os, const MessageDeal &msg) {
-  os << "DEAL" << msg.type << msg.first << msg.hand;
-  return os;
+std::string MessageDeal::Str() const {
+  std::ostringstream oss;
+  oss << "DEAL" << type << first << hand;
+  return oss.str();
 }
 
 MaybeError MessageDeal::SetAfterMatch(std::smatch match) {
@@ -47,7 +50,7 @@ MaybeError MessageDeal::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string MessageDeal::GetPattern() {
+std::string MessageDeal::GetPattern() const {
   return "^DEAL(([1-7])([NESW])((?:(?:10|[2-9]|[JQKA])[CDHS]){13})$";
 }
 

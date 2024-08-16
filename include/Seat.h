@@ -23,9 +23,11 @@ class Seat {
   [[nodiscard]] Value Get() const;
   [[nodiscard]] size_t GetIndex() const;
   friend std::ostream& operator<<(std::ostream &os, const Seat &s);
+  friend bool operator==(const Seat &l, const Seat &r);
 
  private:
-  Value value;
+  Value value = Value::kN;
+
   static constexpr std::array<char, 4> chars{'N', 'E', 'S', 'W'};
 };
 

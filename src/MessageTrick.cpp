@@ -1,5 +1,7 @@
-#include "MessageTrick.h"
+#include <sstream>
+
 #include "MaybeError.h"
+#include "MessageTrick.h"
 #include "TrickNumber.h"
 
 void MessageTrick::SetTrickNumber(TrickNumber trickNumber_) {
@@ -18,9 +20,10 @@ const Hand &MessageTrick::GetCards() const {
   return cards;
 }
 
-std::ostream &operator<<(std::ostream &os, const MessageTrick &msg) {
-  os << "TRICK" << msg.trickNumber << msg.cards;
-  return os;
+std::string MessageTrick::Str() const {
+  std::ostringstream oss;
+  oss << "TRICK" << trickNumber << cards;
+  return oss.str();
 }
 
 MaybeError MessageTrick::SetAfterMatch(std::smatch match) {
@@ -28,7 +31,7 @@ MaybeError MessageTrick::SetAfterMatch(std::smatch match) {
   return trickNumber.Parse(match[1]);
 }
 
-std::string MessageTrick::GetPattern() {
+std::string MessageTrick::GetPattern() const {
   return "^TRICK([1-9]|1[0-3])((?:(?:10|[2-9]|[JQKA])[CDHS]){0,3})$";
 }
 

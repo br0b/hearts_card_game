@@ -8,12 +8,13 @@
 #include "Card.h"
 #include "DealConfig.h"
 #include "MaybeError.h"
+#include "TrickNumber.h"
 
 class Game {
  public:
   struct Trick {
     std::vector<Card> cards;
-    int number;
+    TrickNumber number;
     Seat turn;
   };
 
@@ -22,6 +23,8 @@ class Game {
     int points;
   };
 
+  // If this completes the current trick,
+  // then on return the argument result is set.
   [[nodiscard]] MaybeError Play(Card card, std::optional<TrickResult> &result);
   [[nodiscard]] MaybeError Deal(DealConfig &config);
 
@@ -36,6 +39,8 @@ class Game {
   [[nodiscard]] bool IsMoveLegal(Seat player, Card card) const;
 
   [[nodiscard]] const std::optional<Trick> &GetCurrentTrick() const;
+
+  [[nodiscard]] static std::unique_ptr<Error> NotStarted(std::string funName);
 
  private:
   // Assumes currentTurn is equal to the first player of the trick.
@@ -54,8 +59,6 @@ class Game {
   [[nodiscard]] static int SeventhAndLastTrickBadJudge(const Trick &trick);
 
   [[nodiscard]] static int RobberJudge(const Trick &trick);
-
-  [[nodiscard]] static std::unique_ptr<Error> NotStarted(std::string funName);
 
   // If currentTrick.number = 0 me
   std::optional<Trick> currentTrick;

@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include "MessageBusy.h"
 #include "MaybeError.h"
 
@@ -9,14 +11,15 @@ const std::vector<Seat>& MessageBusy::GetSeats() const {
   return seats;
 }
 
-std::ostream& operator<<(std::ostream &os, const MessageBusy &msg) {
-  os << "BUSY";
+std::string MessageBusy::Str() const {
+  std::ostringstream oss;
+  oss << "BUSY";
 
-  for (Seat s : msg.seats) {
-    os << s;
+  for (Seat s : seats) {
+    oss << s;
   }
 
-  return os;
+  return oss.str();
 }
 
 MaybeError MessageBusy::SetAfterMatch(std::smatch match) {
@@ -37,7 +40,7 @@ MaybeError MessageBusy::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string MessageBusy::GetPattern() {
+std::string MessageBusy::GetPattern() const {
   return "^BUSY([NESW]+)$";
 }
 

@@ -1,5 +1,4 @@
 #include "Message.h"
-#include <memory>
 #include "MessageBusy.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
@@ -8,7 +7,7 @@
 #include "MessageTrick.h"
 #include "MessageWrong.h"
 
-std::optional<std::unique_ptr<Message>> Message::Deserialize(std::string str) {
+std::unique_ptr<Message> Message::Deserialize(std::string str) {
   std::unique_ptr<Message> msg;
 
   if (str.compare(0, 4, "BUSY") == 0) {
@@ -30,10 +29,15 @@ std::optional<std::unique_ptr<Message>> Message::Deserialize(std::string str) {
   }
 
   if (msg.get() == nullptr || msg->Parse(str).has_value()) {
-    return std::nullopt;
+    return nullptr;
   }
 
   return msg;
+}
+
+std::ostream &operator<<(std::ostream &os, const Message &msg) {
+  os << msg.Str();
+  return os;
 }
 
 MaybeError Message::Parse(std::string str) {

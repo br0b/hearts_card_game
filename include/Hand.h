@@ -11,7 +11,10 @@ class Hand {
   void Parse(std::string str);
 
   template <typename Iterator>
-  void Set(Iterator begin, Iterator end);
+  void Set(Iterator begin, Iterator end) {
+    cards.clear();
+    cards.insert(cards.end(), begin, end);
+  }
 
   [[nodiscard]] const std::vector<Card>& Get() const;
 

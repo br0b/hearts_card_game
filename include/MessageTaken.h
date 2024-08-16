@@ -16,12 +16,11 @@ class MessageTaken final : public Message {
   [[nodiscard]] TrickNumber GetTrickNumber() const;
   [[nodiscard]] const Hand& GetCards() const;
   [[nodiscard]] Seat GetTaker() const;
-
-  friend std::ostream &operator<<(std::ostream &os, const MessageTaken &msg);
+  [[nodiscard]] std::string Str() const override;
 
  private:
   MaybeError SetAfterMatch(std::smatch match) override;
-  [[nodiscard]] std::string GetPattern() override;
+  [[nodiscard]] std::string GetPattern() const override;
 
   TrickNumber trickNumber;
   Hand cards;

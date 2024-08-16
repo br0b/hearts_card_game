@@ -22,8 +22,16 @@ MaybeError TrickNumber::Set(int number_) {
   return std::nullopt;
 }
 
+int TrickNumber::Get() const {
+  return number;
+}
+
 std::ostream& operator<<(std::ostream &os, const TrickNumber &x) {
   os << x.number;
   return os;
+}
+
+bool operator==(const TrickNumber &l, const TrickNumber &r) {
+  return l.number == r.number;
 }
 

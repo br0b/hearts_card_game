@@ -13,6 +13,7 @@ class TrickNumber {
   int Get() const;
 
   friend std::ostream& operator<<(std::ostream &os, const TrickNumber &x);
+  friend bool operator==(const TrickNumber &l, const TrickNumber &r);
 
  private:
   int number;

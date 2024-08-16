@@ -10,15 +10,15 @@ class MessagePoints final : public Message {
  public:
   MessagePoints(std::string header);
 
+  void SetHeader(std::string header_);
   void SetPoints(std::array<int, 4> points);
 
   [[nodiscard]] const std::array<int, 4> &GetPoints() const;
-
-  friend std::ostream &operator<<(std::ostream &os, const MessagePoints &msg);
+  [[nodiscard]] std::string Str() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;
-  [[nodiscard]] std::string GetPattern() override;
+  [[nodiscard]] std::string GetPattern() const override;
 
   std::string header;
   std::array<int, 4> points;

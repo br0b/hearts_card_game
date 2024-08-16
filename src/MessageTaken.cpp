@@ -1,8 +1,10 @@
 #include <regex>
+#include <sstream>
+
 #include "MaybeError.h"
+#include "MessageTaken.h"
 #include "TrickNumber.h"
 
-#include "MessageTaken.h"
 
 void MessageTaken::SetTrickNumber(TrickNumber trickNumber_) {
   trickNumber = trickNumber_;
@@ -28,9 +30,10 @@ Seat MessageTaken::GetTaker() const {
   return taker;
 }
 
-std::ostream& operator<<(std::ostream &os, const MessageTaken &msg) {
-  os << "TAKEN" << msg.trickNumber << msg.cards << msg.taker;
-  return os;
+std::string MessageTaken::Str() const {
+  std::ostringstream oss;
+  oss << "TAKEN" << trickNumber << cards << taker;
+  return oss.str();
 }
 
 MaybeError MessageTaken::SetAfterMatch(std::smatch match) {
@@ -49,7 +52,7 @@ MaybeError MessageTaken::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string MessageTaken::GetPattern() {
+std::string MessageTaken::GetPattern() const {
   return "^TAKEN([1-9]|1[0-3])((?:(?:10|[2-9]|[JQKA])[CDHS]){4})([NESW])$";
 }
 

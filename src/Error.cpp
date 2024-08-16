@@ -19,6 +19,10 @@ std::unique_ptr<Error> Error::InvalidArgs(std::string funName_) {
   return std::make_unique<Error>(std::move(funName_), "Invalid argument.");
 }
 
+std::unique_ptr<Error> Error::OutOfRange(std::string funName_) {
+  return std::make_unique<Error>(std::move(funName_), "Out of range.");
+}
+
 std::string Error::GetMessage() const {
   std::ostringstream oss;
   oss << "ERROR: " << funName << " - " << message;

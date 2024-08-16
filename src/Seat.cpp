@@ -37,3 +37,7 @@ std::ostream& operator<<(std::ostream& os, const Seat& seat) {
   return os;
 }
 
+bool operator==(const Seat &l, const Seat &r) {
+  return l.value == r.value;
+}
+

@@ -1,10 +1,11 @@
 #include <cstddef>
 #include <cstring>
+#include <fcntl.h>
 #include <memory>
+#include <numeric>
+#include <netinet/in.h>
 #include <optional>
 #include <sstream>
-#include <fcntl.h>
-#include <netinet/in.h>
 #include <sys/poll.h>
 #include <unistd.h>
 
@@ -51,11 +52,14 @@ MaybeError ConnectionStore::Listen(in_port_t port, int maxTcpQueueLen) {
   return std::nullopt;
 }
 
-MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
+MaybeError ConnectionStore::Update(
+    UpdateData &data,
+    std::optional<std::chrono::milliseconds> timeout) {
   MaybeError error = std::nullopt;
+  time_t pollTimeout = timeout.has_value() ? timeout->count() : -1;
 
   if (debugMode) {
-    Logger::Report("Update. Timeout: " + std::to_string(timeout));
+    Logger::Report("Update. Timeout: " + std::to_string(pollTimeout));
     ReportUpdateData(data);
   }
 
@@ -63,7 +67,7 @@ MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
     return error;
   }
   
-  int pollRes = poll(&pollfds[0], pollfds.size(), timeout);
+  int pollRes = poll(&pollfds[0], pollfds.size(), pollTimeout);
 
   if (pollRes < 0) {
     return Error::FromErrno("ConnectionStore::Update");
@@ -72,6 +76,12 @@ MaybeError ConnectionStore::Update(UpdateData &data, time_t timeout) {
   if (pollRes > 0) {
     if (error = UpdateBuffers(data); error.has_value()) {
       return error;
+    }
+
+    for (size_t fd : data.closed) {
+      if (error = Pop(fd); error.has_value()) {
+        return error;
+      }
     }
 
     if (error = UpdateListening(data.opened); error.has_value()) {
@@ -91,6 +101,38 @@ void ConnectionStore::EnableDebug() {
   debugMode = true;
 }
 
+[[nodiscard]] MaybeError ConnectionStore::Close() {
+  std::vector<size_t> allIds(connections.size());
+  UpdateData data;
+  MaybeError error;
+
+  close(pollfds.begin()->fd);
+  pollfds.at(0) = {-1, 0, 0};
+  std::iota(allIds.begin(), allIds.end(), 0);
+  if (error = StopReceiving(allIds); error.has_value()) {
+    return error;
+  }
+
+  while (!connections.empty()) {
+    if (error = Update(data, std::nullopt); error.has_value()) {
+      return error;
+    }
+
+    if (!data.msgs.empty() || data.opened.has_value()
+        || !data.closed.empty()) {
+      std::ostringstream oss;
+      oss << "Changes shouldn't happen after Close.";
+      return std::make_unique<Error>("ConnectionStore::Close", oss.str());
+    }
+  }
+
+  return std::nullopt;
+}
+
+bool ConnectionStore::IsEmpty() const {
+  return connections.empty();
+}
+
 MaybeError ConnectionStore::PrePoll(UpdateData &input) {
   MaybeError error = std::nullopt;
 
@@ -98,7 +140,7 @@ MaybeError ConnectionStore::PrePoll(UpdateData &input) {
     return error;
   }
 
-  if (error = Send(input.msgs); error.has_value()) {
+  if (error = PushBuffers(input.msgs); error.has_value()) {
     return error;
   }
 
@@ -109,7 +151,7 @@ MaybeError ConnectionStore::PrePoll(UpdateData &input) {
   return std::nullopt;
 }
 
-MaybeError ConnectionStore::Send(
+MaybeError ConnectionStore::PushBuffers(
       const std::vector<Message> &pending) {
   MaybeError error = std::nullopt;
 
@@ -140,63 +182,68 @@ MaybeError ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
 
 // TODO: Move nested code to UpdateIncoming and UpdateOutgoing.
 MaybeError ConnectionStore::UpdateBuffers(UpdateData &output) {
-  std::string message = "";
   MaybeError error = std::nullopt;
+  MessageBuffer::Result res;
+  std::optional<std::string> msg;
   output.msgs.clear();
   output.closed.clear();
+  // Buffers that have been closed by Update caller
+  // either in this or some previous call.
+  // They can be safely deleted when they are empty.
+  std::vector<int> emptyLingeringBuffers;
 
   for (size_t i = 0; i < connections.size(); i++) {
     pollfd &pfd = pollfds[i + 1];
     if (pfd.revents & (POLLIN | POLLERR)) {
-      if (error = connections[i]->Receive(); error.has_value()) {
+      if (error = connections[i]->Receive(res); error.has_value()) {
         return error;
       }
 
-      if (!connections[i]->IsOpen()) {
-        output.closed.push_back(i);
-      }
-      
-      if (connections[i]->ContainsMessage()) {
-        if (error = connections[i]->PopMessage(message); error.has_value()) {
+      if (res.IsClosed()) {
+        output.closed.push_back((size_t)pfd.fd);
+        continue;
+      } else {
+        if (error = res.GetMessage(msg); error.has_value()) {
           return error;
         }
 
-        output.msgs.push_back({(size_t)pfd.fd, std::move(message)});
+        if (msg.has_value()) {
+          output.msgs.push_back({(size_t)pfd.fd, std::move(*msg)});
+        }
       }
     }
 
     if (pfd.revents & POLLOUT) {
-      if (error = connections[i]->Send(); error.has_value()) {
+      if (error = connections[i]->Send(res); error.has_value()) {
         return error;
       }
 
-      if (!connections[i]->IsOpen()) {
-        output.closed.push_back(i);
-      }
-      
-      if (!(pfd.events & POLLIN) && connections[i]->IsEmpty()) {
-        if (error = Pop(pfd.fd); error.has_value()) { 
-          return error;
+      if (res.IsClosed()) {
+        output.closed.push_back((size_t)pfd.fd);
+      } else if (connections[i]->IsEmpty()) {
+        pfd.events &= ~POLLOUT;
+        if (!(pfd.events & POLLIN)) {
+          emptyLingeringBuffers.push_back(pfd.fd);
         }
       }
     }
   }
 
-  // TODO: Use StopReceiving and ConvertOutput outside of function.
-  for (size_t &id : output.closed) {
-    pollfds[id + 1].events &= ~POLLIN;
-    connections[id]->ClearIncoming();
-    id = pollfds[id + 1].fd;
+  for (int fd : emptyLingeringBuffers) {
+    if (error = Pop(fd); error.has_value()) {
+      return error;
+    }
   }
 
   return std::nullopt;
 }
 
 MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
-  MaybeError error = std::nullopt;
+  MaybeError error;
+
+  opened.reset();
 
   if (!(pollfds[0].revents & POLLIN)) {
-    opened.reset();
     return std::nullopt;
   }
 
@@ -215,11 +262,14 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
                                    oss.str());
   }
 
+  if (fcntl(fd, F_SETFD, O_NONBLOCK) != 0) {
+    return Error::FromErrno("ConnectionStore::UpdateListening");
+  }
+
   if (error = Push(fd); error.has_value()) {
     return error;
   }
 
-  opened = fd;
   if (debugMode) {
     std::optional<std::string> addr = connections.at(fdMap[fd])->GetRemote();
     if (!addr.has_value()) {
@@ -230,6 +280,8 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
     std::ostringstream oss;
     oss << "New connection (fd: "<< fd << ", addr: " << addr.value() << ')';
   }
+
+  opened = fd;
   return std::nullopt;
 }
 
@@ -252,7 +304,7 @@ MaybeError ConnectionStore::Pop(int fd) {
     return error;
   }
 
-  if (connections.size() > 1 && id != connections.size() - 1) {
+  if (id != connections.size() - 1) {
     // Move last connection to trueIndex.
     pollfds[id + 1] = std::move(pollfds.back());
     connections[id] = std::move(connections.back());

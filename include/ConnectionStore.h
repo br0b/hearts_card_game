@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
+#include <chrono>
 #include <unordered_map>
 #include <vector>
 
@@ -35,13 +36,21 @@ class ConnectionStore {
   [[nodiscard]] MaybeError Listen(in_port_t port, int maxTcpQueueLen);
   // Argument data should contain outgoing messages and fds to close.
   // Return received messages and closed ids in the same argument.
-  [[nodiscard]] MaybeError Update(UpdateData &data, time_t timeout);
+  // Don't return the same socket fds as on input.
+  [[nodiscard]] MaybeError Update(
+      UpdateData &data,
+      std::optional<std::chrono::milliseconds> timeout);
 
   void EnableDebug();
+  // Closes all connections.
+  // Ensures all the outgoing messages are written to the TCP buffers.
+  [[nodiscard]] MaybeError Close();
+
+  [[nodiscard]] bool IsEmpty() const;
 
 private:
   [[nodiscard]] MaybeError PrePoll(UpdateData &input);
-  [[nodiscard]] MaybeError Send(const std::vector<Message> &pending);
+  [[nodiscard]] MaybeError PushBuffers(const std::vector<Message> &pending);
   [[nodiscard]] MaybeError StopReceiving(const std::vector<size_t> &fds);
   [[nodiscard]] MaybeError UpdateBuffers(UpdateData &output);
   // Put new client fd in opened.
