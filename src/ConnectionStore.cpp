@@ -290,7 +290,7 @@ MaybeError ConnectionStore::Push(int fd) {
   }
 
   pollfds.emplace_back(fd, POLLIN, 0);
-  connections.push_back(std::make_unique<MessageBuffer>(buffer, kSeparator));
+  connections.push_back(std::make_unique<MessageBuffer>(buffer));
   fdMap.emplace(fd, connections.size() - 1);
   return connections.back()->SetSocket(fd);
 }

@@ -1,4 +1,3 @@
-#include <string.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -11,8 +10,7 @@
 #include "MessageBuffer.h"
 #include "Utilities.h"
 
-Client::Client(Seat seat, size_t bufferLen, std::string separator)
-    : seat(seat), buffer(bufferLen), server(buffer, separator) {}
+Client::Client(Seat seat) : seat(seat), server(buffer) {}
 
 MaybeError Client::Connect(
     std::string host,
@@ -46,7 +44,7 @@ MaybeError Client::Run(bool isAutomatic) {
   MaybeError error = std::nullopt;
 
   if (!isAutomatic) {
-    user = std::make_unique<MessageBuffer>(buffer, "\n");
+    user = std::make_unique<MessageBuffer>(buffer);
     user->SetPipe(STDIN_FILENO);
     pollfds.emplace_back(STDIN_FILENO, POLLIN, 0);
   }

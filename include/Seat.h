@@ -18,7 +18,7 @@ class Seat {
   Seat();
   Seat(Value value);
 
-  MaybeError Parse(std::string str);
+  [[nodiscard]] MaybeError Parse(std::string str);
 
   void Set(Value value_);
   void CycleClockwise();

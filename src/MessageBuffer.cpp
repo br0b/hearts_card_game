@@ -7,9 +7,8 @@
 #include "MessageBuffer.h"
 #include "Utilities.h"
 
-MessageBuffer::MessageBuffer(std::vector<char> &buf,
-                             const std::string &separator)
-    : incoming{'\0'}, buffer(buf), separator(separator), isOpen(false) {}
+MessageBuffer::MessageBuffer(std::vector<char> &buf)
+    : incoming{'\0'}, buffer(buf), isOpen(false) {}
 
 MaybeError MessageBuffer::SetSocket(int fd_) {
   MaybeError error = std::nullopt;
@@ -28,6 +27,10 @@ MaybeError MessageBuffer::SetSocket(int fd_) {
   isOpen = true;
   isReportingOn = true;
   return std::nullopt;
+}
+
+void MessageBuffer::SetSeperator(std::string separator_) {
+  separator = separator_;
 }
 
 void MessageBuffer::SetPipe(int fd_) {

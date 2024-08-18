@@ -15,7 +15,7 @@ class Client {
  public:
   // Argument bufferLen specifies the size of the buffer used by Client for
   // reads and writes.
-  Client(Seat seat, size_t bufferLen, std::string separator);
+  Client(Seat seat);
 
   [[nodiscard]] MaybeError Connect(
       std::string host,
@@ -31,7 +31,7 @@ class Client {
       std::optional<ConnectionProtocol> protocol);
 
   Seat seat;
-  std::vector<char> buffer;
+  std::vector<char> buffer = std::vector<char>(4096);
   MessageBuffer server;
   std::unique_ptr<MessageBuffer> user;
   // The first field is the server and the second is stdin.

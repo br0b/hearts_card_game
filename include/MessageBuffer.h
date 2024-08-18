@@ -23,12 +23,13 @@ class MessageBuffer {
     bool isClosed;
   };
 
-  MessageBuffer(std::vector<char> &buf, const std::string &separator);
+  MessageBuffer(std::vector<char> &buf);
 
   // Modify
 
   [[nodiscard]] MaybeError SetSocket(int fd_);
   void SetPipe(int fd_);
+  void SetSeperator(std::string separator_);
 
   // Reading from a closed socket is allowed only once.
   [[nodiscard]] MaybeError Receive(Result &res);
@@ -65,7 +66,7 @@ class MessageBuffer {
   std::deque<char> incoming;
   std::deque<char> outgoing;
   std::vector<char> &buffer;
-  const std::string separator;
+  std::string separator = "\r\n";
   bool isOpen;
   bool isReportingOn;
 };

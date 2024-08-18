@@ -79,7 +79,7 @@ MaybeError Utilities::GetBoundSocket(int ai_family, Socket &s) {
 MaybeError Utilities::ConnectSocket(
     int fd,
     const struct sockaddr_storage &address) {
-  if (connect(fd, (sockaddr *)&address, sizeof(address) != 0)) {
+  if (connect(fd, (sockaddr *)&address, sizeof(address)) != 0) {
     return Error::FromErrno("connect");
   }
 

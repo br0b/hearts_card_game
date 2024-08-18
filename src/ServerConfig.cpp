@@ -19,7 +19,7 @@ ServerConfig::FromMainArgs(int argc, char *argv[]) {
   while ((opt = getopt(argc, argv, "p:f:t:")) != -1) {
     switch (opt) {
       case 'p':
-        port = Utilities::ParseNumber<uint16_t>(optarg, 0, UINT16_MAX);
+        port = Utilities::ParseNumber<in_port_t>(optarg, 0, UINT16_MAX);
         if (!port.has_value()) {
           return Error::InvalidArg("ServerConfig::FromMainArgs", "port");
         }
@@ -34,7 +34,7 @@ ServerConfig::FromMainArgs(int argc, char *argv[]) {
         }
         break;
       default:
-        return Error::InvalidArgs("ServerConfig::FromMainArgs");
+        return Error::InvalidArg("ServerConfig::FromMainArgs", optarg);
     }
   }
 

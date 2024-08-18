@@ -79,7 +79,6 @@ private:
   std::vector<pollfd> pollfds;
   std::vector<std::unique_ptr<MessageBuffer>> connections;
 
-  static constexpr const char *kSeparator = "\r\n";
   static constexpr int kMaxTCPQueueLength = 128;
 
   // Buffer used for read/write operations.
