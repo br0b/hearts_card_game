@@ -1,29 +1,36 @@
 #include <memory>
+#include <variant>
 
 #include "GameConfig.h"
 #include "MaybeError.h"
 #include "Logger.h"
 #include "Server.h"
+#include "ServerConfig.h"
 
-int main() {
+int main(int argc, char *argv[]) {
   const std::string separator = "\r\n";
-  const size_t kBufferLen = 4096;
-  const std::chrono::milliseconds kTimeout(5000);
-  in_port_t port = 0;
-  const int kMaxTcpQueueLen = 5;
 
   MaybeError error = std::nullopt;
-  GameConfig config;
-  Server server(separator, kBufferLen, kTimeout);
+  std::unique_ptr<ServerConfig> serverConfig;
+  GameConfig gameConfig;
+  Server server;
 
-  if (error = config.Set("config.txt"); error.has_value()) {
+  auto tmp = ServerConfig::FromMainArgs(argc, argv);
+  if (std::holds_alternative<MaybeError>(tmp)) {
+    Logger::Log(std::get<MaybeError>(tmp).value()->GetMessage());
+    return 1;
+  }
+  serverConfig = std::move(std::get<std::unique_ptr<ServerConfig>>(tmp));
+
+  if (error = gameConfig.Set(serverConfig->GetConfigFile());
+      error.has_value()) {
     Logger::Log(error.value()->GetMessage());
     return 1;
   }
 
-  server.Configure(config.Get());
+  server.Configure(gameConfig.Get(), serverConfig->GetMaxTimeout());
 
-  if (error = server.Listen(port, kMaxTcpQueueLen); error.has_value()) {
+  if (error = server.Listen(serverConfig->GetPort()); error.has_value()) {
     Logger::Log(error.value()->GetMessage());
     return 1;
   }

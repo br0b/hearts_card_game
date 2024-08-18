@@ -1,12 +1,14 @@
+#include <algorithm>
 #include <arpa/inet.h>
+#include <chrono>
+#include <memory>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <stdexcept>
+#include <unordered_map>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <chrono>
-#include <memory>
-#include <stdexcept>
 
 #include "ConnectionStore.h"
 #include "MaybeError.h"
@@ -20,18 +22,22 @@
 #include "MessageWrong.h"
 #include "Server.h"
 
-Server::Server(std::string separator, size_t bufferLen,
-               std::chrono::milliseconds timeout)
-    : timeout(timeout), connectionStore(std::move(separator), bufferLen) {}
+Server::Server() : trickDeadline(maxTimeout) {}
 
-void Server::Configure(std::vector<DealConfig> deals_) {
+void Server::Configure(std::vector<DealConfig> deals_,
+                       std::optional<std::chrono::seconds> maxTimeout_) {
   signal(SIGPIPE, SIG_IGN);
   deals = std::move(deals_);
+  // The vector will be used as a stack, so it is initially reversed.
   std::reverse(deals.begin(), deals.end());
+  if (maxTimeout_.has_value()) {
+    maxTimeout = std::chrono::duration_cast<std::chrono::milliseconds>(
+        *maxTimeout_);
+  }
 }
 
-MaybeError Server::Listen(in_port_t port, int maxTcpQueueLen) {
-  return connectionStore.Listen(port, maxTcpQueueLen);
+MaybeError Server::Listen(std::optional<in_port_t> port) {
+  return connectionStore.Listen(port);
 }
 
 MaybeError Server::Run() {
@@ -40,12 +46,11 @@ MaybeError Server::Run() {
   }
 
   MaybeError error;
-  MessageDeal msgDeal;
 
   // Initate the game.
 
   // Gather the four players.
-  if (error = SafeUpdate(false); error.has_value()) {
+  if (error = SafeUpdate(); error.has_value()) {
     return error;
   }
 
@@ -57,16 +62,12 @@ MaybeError Server::Run() {
     return error;
   }
 
-  if (error = SafeUpdate(false); error.has_value()) {
-    return error;
-  }
-
   while (!deals.empty()) {
     if (error = HandlePlayerMessages(); error.has_value()) {
       return error;
     }
 
-    if (error = SafeUpdate(true); error.has_value()) {
+    if (error = SafeUpdate(); error.has_value()) {
       return error; 
     }
   }
@@ -78,42 +79,37 @@ void Server::EnableDebug() {
   connectionStore.EnableDebug();
 }
 
-MaybeError Server::SafeUpdate(bool sendState) {
+MaybeError Server::SafeUpdate() {
   // Gather four players.
   do {
-    if (MaybeError error = Update(sendState); error.has_value()) {
+    if (MaybeError error = Update(); error.has_value()) {
       return error;
     }
-  } while (nPlayers != 4);
+  } while (playerMap.size() < 4);
 
   return std::nullopt;
 }
 
-MaybeError Server::Update(bool sendState) {
-  std::optional<std::chrono::milliseconds> earliestTimeout;
+MaybeError Server::Update() {
   MaybeError error;
-  Seat seat;
-  std::vector<Seat> vecBusy;
 
   // Set timeout
+  std::optional<std::chrono::milliseconds> timeout;
+
+  if (playerMap.size() == 4) {
+    std::cerr << trickDeadline.GetTimeLeft() << '\n';
+    timeout = trickDeadline.GetTimeLeft();
+  }
+
   std::vector<int> overdueCandidates;
-  for (Connection &c : connections) {
-    const auto &deadline = c.responseDeadline;
-    if (!deadline.has_value()) {
-      continue;
-    }
-    if (deadline->IsOverdue()) {
-      if (candidateMap.contains(c.socketFd)) {
-        overdueCandidates.push_back(c.socketFd);
-      } else if (playerMap.contains(c.socketFd)) {
-        return std::make_unique<Error>("Server::Update",
-                                       "Unhandled player timeout.");
-      } else {
-        return ErrorSocket("Server::Update");
+  for (const Candidate &c: candidates) {
+    if (c.deadline.IsOverdue()) {
+      overdueCandidates.push_back(c.fd);
+    } else {
+      auto timeLeft = c.deadline.GetTimeLeft();
+      if (!timeout.has_value() || timeLeft < *timeout) {
+        timeout = timeLeft;
       }
-    } else if (!earliestTimeout.has_value()
-               || deadline->GetTimeLeft() < *earliestTimeout) {
-      earliestTimeout = deadline->GetTimeLeft();
     }
   }
 
@@ -124,48 +120,52 @@ MaybeError Server::Update(bool sendState) {
     }
   }
 
-  if (error = connectionStore.Update(updateArg, earliestTimeout);
-      error.has_value()) {
+  if (error = connectionStore.Update(updateData, timeout); error.has_value()) {
     return error;
   }
-  updateRes = std::move(updateArg);
-  updateArg = {{}, std::nullopt, {}};
 
   // Pop closed.
-  for (int fd : updateRes.closed) {
+  for (int fd : updateData.closed) {
     if (error = PopConnection(fd); error.has_value()) {
       return error;
     }
   }
+  updateData.closed.clear();
 
   // New candidate
-  if (updateRes.opened.has_value()) {
-    if (error = PushCandidate(updateRes.opened.value()); error.has_value()) {
+  if (updateData.opened.has_value()) {
+    if (error = PushCandidate(updateData.opened.value()); error.has_value()) {
       return error;
     }
   }
+  updateData.opened.reset();
 
-  // Promote candidates to players.
-  for (const auto &msg : updateRes.msgs) {
-    if (!candidateMap.contains(msg.id)) {
+  const auto msgs = updateData.msgs;
+  updateData.msgs.clear();
+  for (const auto &msg : msgs) {
+    if (playerMap.contains(msg.id)) {
+      playerMessages.emplace_back(playerMap.at(msg.id), msg.content);
       continue;
+    } else if (!candidateMap.contains(msg.id)) {
+      return ErrorSocket("Server::Update");
     }
+
     auto m = Message::Deserialize(std::move(msg.content));
     if (m != nullptr) {
       try {
         MessageIam &msgIam = dynamic_cast<MessageIam &>(*m);
-        if (seatMap.at(msgIam.GetSeat().GetIndex()).has_value()) {
-          vecBusy.clear();
-          seat.Set(Seat::Value::kN);
-          for (size_t p = 0 ; p < 4; p++) {
-            if (seatMap[p].has_value()) {
+        if (players.at(msgIam.GetSeat().GetIndex()).GetFd().has_value()) {
+          std::vector<Seat> vecBusy;
+          Seat seat;
+          for (const Player &p : players) {
+            if (p.GetFd().has_value()) {
               vecBusy.push_back(seat);
             }
             seat.CycleClockwise();
           }
           MessageBusy msgBusy;
           msgBusy.SetSeats(vecBusy);
-          updateArg.msgs.emplace_back(msg.id, msgBusy.Str());
+          updateData.msgs.emplace_back(msg.id, msgBusy.Str());
           if (error = CloseConnection(msg.id); error.has_value()) {
             return error;
           }
@@ -174,7 +174,7 @@ MaybeError Server::Update(bool sendState) {
                    error.has_value()) {
             return error;
           }
-          if (sendState) {
+          if (game.GetCurrentTrick().has_value()) {
             Hand hand;
             TrickNumber trickNumber;
             MessageDeal msgDeal;
@@ -183,7 +183,7 @@ MaybeError Server::Update(bool sendState) {
             msgDeal.SetHand(
                 deals.back().GetHands()[msgIam.GetSeat().GetIndex()]);
             msgDeal.SetType(deals.back().GetType());
-            updateArg.msgs.emplace_back(msg.id, msgDeal.Str());
+            updateData.msgs.emplace_back(msg.id, msgDeal.Str());
             for (size_t i = 0; i < tricks.size(); i++) {
               hand.Set(tricks[i].cards.begin(), tricks[i].cards.end());
               msgTaken.SetCards(hand);
@@ -191,13 +191,12 @@ MaybeError Server::Update(bool sendState) {
               if (error = trickNumber.Set(i + 1); error.has_value()) {
                 return error;
               }
-              updateArg.msgs.emplace_back(msg.id, msgTaken.Str());
+              updateData.msgs.emplace_back(msg.id, msgTaken.Str());
             }
           }
         }
       } catch (std::bad_cast &e) {
-        if (error = CloseConnection(msg.id);
-            error.has_value()) {
+        if (error = CloseConnection(msg.id); error.has_value()) {
           return error;
         }
       }
@@ -213,31 +212,44 @@ MaybeError Server::Update(bool sendState) {
 MaybeError Server::HandlePlayerMessages() {
   MaybeError error;
   std::optional<Game::Trick> trick = game.GetCurrentTrick();
-  bool isTrickReceived = false;
+  int fd;
+  std::optional<int> tmpFd;
+  std::array<int, 4> playerFds;
 
   if (!trick.has_value()) {
     return Game::NotStarted("Server::HandlePlayerMessages");
   }
 
-  for (ConnectionStore::Message &msg : updateRes.msgs) {
-    if (!playerMap.contains(msg.id)) {
+  for (size_t i = 0; i < 4; i++) {
+    if (!(tmpFd = players.at(i).GetFd()).has_value()) {
       continue;
     }
+    playerFds.at(i) = tmpFd.value();
+  }
+
+  const auto msgs = playerMessages;
+  playerMessages.clear();
+  for (const auto &msg : msgs) {
+    if (playerMap.size() != 4) {
+      playerMessages.push_back(msg);
+    }
+
+    fd = playerFds.at(msg.id.GetIndex());
     try {
-      auto m = Message::Deserialize(std::move(msg.content));
+      auto m = Message::Deserialize(msg.content);
       if (m != nullptr) {
         MessageTrick &msgTrick = dynamic_cast<MessageTrick &>(*m);
-        Seat seat = playerMap.at(msg.id);
         std::vector<Card> cards = msgTrick.GetCards().Get();
         
-        if (seat != trick->turn || msgTrick.GetTrickNumber() != trick->number
-            || cards.size() != 1 || !game.IsMoveLegal(seat, cards.at(0))) {
+        if (msg.id != trick->turn
+            || msgTrick.GetTrickNumber() != trick->number
+            || cards.size() != 1
+            || !game.IsMoveLegal(msg.id, cards.at(0))) {
           MessageWrong msgWrong;
           msgWrong.SetTrickNumber(trick->number);
-          updateArg.msgs.emplace_back(msg.id, msgWrong.Str());
-          if (error = CloseConnection(msg.id); error.has_value()) {
-            return error;
-          }
+          updateData.msgs.emplace_back(fd, msgWrong.Str());
+          trickDeadline.Reset();
+          continue;
         }
 
         std::optional<Game::TrickResult> result;
@@ -246,7 +258,6 @@ MaybeError Server::HandlePlayerMessages() {
           return error;
         }
 
-        isTrickReceived = true;
         trick = game.GetCurrentTrick();
 
         if (!result.has_value()) {
@@ -254,10 +265,7 @@ MaybeError Server::HandlePlayerMessages() {
         }
 
         // Finished trick.
-        if (error = points.at(result->taker.GetIndex()).Add(result->points);
-            error.has_value()) {
-          return error;
-        }
+        players.at(msg.id.GetIndex()).AddPoints(result->points);
 
         if (trick.has_value()) {
           std::array<Card, 4> cardsArr = {trick->cards.at(0),
@@ -271,17 +279,17 @@ MaybeError Server::HandlePlayerMessages() {
           std::array<int, 4> total;
 
           for (size_t i = 0; i < 4; i++) {
-            score.at(i) = points.at(i).GetScore();
-            total.at(i) = points.at(i).GetTotal();
+            score.at(i) = players.at(i).GetScore();
+            total.at(i) = players.at(i).GetTotal();
+            players.at(i).ResetScore();
           }
-          msgPoints.SetPoints(score);
-          for (auto const &c : connections) {
-            updateArg.msgs.emplace_back(c.socketFd, msgPoints.Str());
-          }
-          msgPoints.SetHeader("TOTAL");
-          msgPoints.SetPoints(total);
-          for (auto const &c : connections) {
-            updateArg.msgs.emplace_back(c.socketFd, msgPoints.Str());
+          for (int fd : playerFds) {
+            updateData.msgs.emplace_back(fd, msgPoints.Str());
+            msgPoints.SetHeader("TOTAL");
+            msgPoints.SetPoints(total);
+            updateData.msgs.emplace_back(fd, msgPoints.Str());
+            msgPoints.SetHeader("SCORE");
+            msgPoints.SetPoints(score);
           }
 
           deals.pop_back();
@@ -295,31 +303,26 @@ MaybeError Server::HandlePlayerMessages() {
             return error;
           }
         }
-      } else if (error = CloseConnection(msg.id); error.has_value()) {
-        return error;
+      } else {
+        // Broken invariant.
+        if (error = CloseConnection(fd); error.has_value()) {
+          return error;
+        }
+        continue;
       }
     } catch (std::out_of_range &e) {
       return Error::OutOfRange("Server::HandlePlayerMessages");
     } catch (std::bad_cast &e) {
-      if (error = CloseConnection(msg.id); error.has_value()) {
+      // Broken invariant.
+      if (error = CloseConnection(fd); error.has_value()) {
         return error;
       }
+      continue;
     }
   }
 
-  if (!trick.has_value() || !seatMap.at(trick->turn.GetIndex())) {
-    return std::nullopt;
-  }
-
-  bool isOverdue;
-  if (error = IsResponseOverdue(trick->turn, isOverdue); error.has_value()) {
-    return error;
-  }
-
-  if (!isTrickReceived && isOverdue) {
-    if (error = SendTrick(); error.has_value()) {
-      return error;
-    }
+  if (trick.has_value() && trickDeadline.IsOverdue()) {
+    return SendTrick();
   }
 
   return std::nullopt;
@@ -330,26 +333,27 @@ MaybeError Server::PushCandidate(int socketFd) {
     return ErrorSocket("Server::PushCandidate");
   }
 
-  connections.emplace_back(socketFd, Deadline());
-  connections.back().responseDeadline->Set(timeout);
-  candidateMap.emplace(socketFd, connections.size() - 1);
+  candidates.emplace_back(socketFd, Deadline(maxTimeout));
+  candidateMap.emplace(socketFd, candidates.size() - 1);
   return std::nullopt;
 }
 
 MaybeError Server::PromoteToPlayer(int socketFd, Seat seat) {
   if (!candidateMap.contains(socketFd) || playerMap.contains(socketFd)) {
     return ErrorSocket("Server::PromoteToPlayer");
-  } else if (seatMap[seat.GetIndex()].has_value()) {
+  }
+  
+  if (players.at(seat.GetIndex()).GetFd().has_value()) {
     return std::make_unique<Error>("Server::PromoteToPlayer",
                                    "Seat already taken.");
   }
 
-  size_t index = candidateMap.at(socketFd);
-  connections.at(index).responseDeadline.reset();
-  candidateMap.erase(socketFd);
-  seatMap[seat.GetIndex()] = index;
+  if (MaybeError error = PopConnection(socketFd); error.has_value()) {
+    return error;
+  }
+  
+  players.at(seat.GetIndex()).SetFd(socketFd);
   playerMap.emplace(socketFd, seat);
-  nPlayers++;
   return std::nullopt;
 }
 
@@ -358,58 +362,45 @@ MaybeError Server::PopConnection(int socketFd) {
 
   if (candidateMap.contains(socketFd)) {
     index = candidateMap.at(socketFd);
-    if (index != connections.size() - 1) {
-      connections[index] = connections.back();
-      candidateMap.at(connections.back().socketFd) = index;
+    if (index != candidates.size() - 1) {
+      candidates.at(index).deadline.Set(candidates.back().deadline.Get());
+      candidates.at(index).fd = candidates.back().fd;
+      candidateMap.at(candidates.back().fd) = index;
     }
+    candidates.pop_back();
     candidateMap.erase(socketFd);
   } else if (playerMap.contains(socketFd)) {
     Seat seat = playerMap.at(socketFd);
-    if (!seatMap[seat.GetIndex()]) {
+    if (!players.at(seat.GetIndex()).GetFd().has_value()) {
       return ErrorEmptySeat("Server::PopConnection");
     }
-    index = seatMap[seat.GetIndex()].value();
-    if (index != connections.size() - 1) {
-      connections[index] = connections.back();
-      int socketFdBack = connections.back().socketFd;
-      if (!playerMap.contains(socketFdBack)) {
-        return ErrorSocket("Server::PopConnection");
-      }
-      Seat seatBack = playerMap.at(socketFdBack);
-      playerMap.at(socketFd) = seatBack;
-      seatMap[seatBack.GetIndex()] = index;
-    }
     playerMap.erase(socketFd);
-    seatMap.at(seat.GetIndex()).reset();
-    nPlayers--;
+    players.at(seat.GetIndex()).SetFd(std::nullopt);
   } else {
     return ErrorSocket("Server::PopConnection");
   }
 
-  connections.pop_back();
   return std::nullopt;
 }
 
 MaybeError Server::CloseConnection(int socketFd) {
-  updateArg.closed.push_back(socketFd);
+  updateData.closed.push_back(socketFd);
   return PopConnection(socketFd);
 }
 
 MaybeError Server::NewDeal() {
   MessageDeal msgDeal;
-  Seat seat;
-  int socketFd;
+  std::optional<int> fd;
 
   const auto &hands = deals.back().GetHands();
   msgDeal.SetFirst(deals.back().GetFirst());
   msgDeal.SetType(deals.back().GetType());
-  for (int i = 0; i < 4; i++) {
-    if (MaybeError error = GetPlayerFd(seat, socketFd); error.has_value()) {
-      return error;
+  for (size_t i = 0; i < 4; i++) {
+    if (!(fd = players.at(i).GetFd()).has_value()) {
+      return ErrorEmptySeat("Server::NewDeal");
     }
     msgDeal.SetHand(hands.at(i));
-    updateArg.msgs.emplace_back(socketFd, msgDeal.Str());
-    seat.CycleClockwise();
+    updateData.msgs.emplace_back(fd.value(), msgDeal.Str());
   }
   return game.Deal(deals.back());
 }
@@ -425,100 +416,84 @@ MaybeError Server::SendTrick() {
   Hand hand;
   hand.Set(trick->cards.begin(), trick->cards.end());
 
-  int socketFd;
-  if (error = GetPlayerFd(trick->turn, socketFd); error.has_value()) {
+  std::optional<int> fd;
+  if (!(fd = players.at(trick.value().turn.GetIndex()).GetFd()).has_value()) {
     return error;
   }
 
   MessageTrick msg;
   msg.SetTrickNumber(trick->number);
   msg.SetCards(std::move(hand));
-  updateArg.msgs.emplace_back(socketFd, msg.Str());
-  return ResetResponseDeadline(trick->turn);
-}
-
-MaybeError Server::ResetResponseDeadline(Seat seat) {
-  if (!seatMap.at(seat.GetIndex()).has_value()) {
-    return ErrorEmptySeat("Server::ResetResponseDeadline");
-  }
-
-  Deadline deadline;
-  deadline.Set(timeout);
-
-  try {
-    connections.at(*seatMap.at(seat.GetIndex())).responseDeadline = deadline;
-  } catch (std::out_of_range &e) {
-    return Error::OutOfRange("Server::ResetResponseDeadline");
-  }
-
+  updateData.msgs.emplace_back(fd.value(), msg.Str());
+  trickDeadline.Reset();
   return std::nullopt;
-}
-
-MaybeError Server::IsResponseOverdue(Seat seat, bool &isOverdue) const {
-  if (!seatMap.at(seat.GetIndex()).has_value()) {
-    return ErrorEmptySeat("Server::IsResponseOverdue");
-  }
-
-  try {
-    isOverdue = connections.at(*seatMap.at(seat.GetIndex()))
-      .responseDeadline->IsOverdue();
-  } catch (std::out_of_range &e) {
-    return Error::OutOfRange("Server::IsResponseOverdue");
-  }
-
-  return std::nullopt;
-}
-
-MaybeError Server::GetPlayerFd(Seat seat, int &socketFd) const {
-  if (!seatMap.at(seat.GetIndex()).has_value()) {
-    return ErrorEmptySeat("Server::GetPlayerFd");
-  }
-
-  try {
-    socketFd = connections.at(*seatMap.at(seat.GetIndex())).socketFd;
-    return std::nullopt;
-  } catch (std::out_of_range &e) {
-    return Error::OutOfRange("Server::GetPlayerFd");
-  }
 }
 
 std::unique_ptr<Error> Server::ErrorSocket(std::string funName) {
-  return std::make_unique<Error>(std::move(funName), "Socket errror.");
+  return std::make_unique<Error>(std::move(funName), "Socket error.");
 }
 
 std::unique_ptr<Error> Server::ErrorEmptySeat(std::string funName) {
   return std::make_unique<Error>(std::move(funName), "Seat empty.");
 }
 
-void Server::Deadline::Set(std::chrono::milliseconds ms) {
-  deadline = std::chrono::system_clock::now() + ms;
+Server::Deadline::Deadline(std::chrono::milliseconds timeout)
+    : deadline(std::chrono::system_clock::now() + timeout),
+      timeout(timeout) {}
+
+void Server::Deadline::Reset() {
+  deadline = std::chrono::system_clock::now() + timeout;
+}
+
+void Server::Deadline::Set(TimePoint timePoint) {
+  deadline = timePoint;
+}
+
+Server::TimePoint Server::Deadline::Get() const {
+  return deadline;
 }
 
 std::chrono::milliseconds Server::Deadline::GetTimeLeft() const {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
+  auto ret = std::chrono::duration_cast<std::chrono::milliseconds>(
       deadline - std::chrono::system_clock::now());
+  if (ret < std::chrono::milliseconds(0)) {
+    return std::chrono::milliseconds(0);
+  }
+  return ret;
 }
 
 bool Server::Deadline::IsOverdue() const {
   return GetTimeLeft().count() <= 0;
 }
 
-MaybeError Server::Points::Add(int x) {
-  if (x < 0) {
-    return std::make_unique<Error>("Server::Points::Add",
-                                   "Arg should be non-negative.");
-  }
+Server::Player::Player(Seat seat) : seat{seat} {}
 
+void Server::Player::AddPoints(int x) {
   score += x;
   total += x;
-  return std::nullopt;
 }
 
-int Server::Points::GetScore() const {
+void Server::Player::ResetScore() {
+  score = 0;
+}
+
+void Server::Player::SetFd(std::optional<int> fd_) {
+  fd = fd_;
+}
+
+int Server::Player::GetScore() const {
   return score;
 }
 
-int Server::Points::GetTotal() const {
+int Server::Player::GetTotal() const {
   return total;
+}
+
+std::optional<int> Server::Player::GetFd() const {
+  return fd;
+}
+
+Seat Server::Player::GetSeat() const {
+  return seat;
 }
 

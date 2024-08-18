@@ -10,8 +10,8 @@
 class Utilities {
 public:
   struct Socket {
-    int fd;
-    in_port_t port;
+    std::optional<int> fd;
+    std::optional<in_port_t> port;
   };
 
   // If addrFam = AF_UNSPEC, then on return it contains
@@ -49,9 +49,25 @@ public:
 
   [[nodiscard]] static MaybeError SetNonBlocking(int fd);
 
-  // Parse string to integer in range [l;r]. Return std::nullopt otherwise.
-  [[nodiscard]] static std::optional<int> ParseInt(std::string tr, int l,
-                                                   int r);
+  // Parse string to number of type T in range [l;r].
+  // Return std::nullopt otherwise.
+  template <typename T>
+  [[nodiscard]] static std::optional<T> ParseNumber(std::string str, T l,
+                                                    T r) {
+    int ret = 0;
+
+    try {
+      ret = std::stoi(str);
+
+      if (ret < l || ret > r) {
+        return std::nullopt;
+      }
+    } catch (std::logic_error &e) {
+      return std::nullopt;
+    }
+
+    return ret;
+  }
 
 private:
   [[nodiscard]] static MaybeError GetIpFromAddress(

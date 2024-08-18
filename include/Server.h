@@ -11,35 +11,59 @@
 
 class Server {
  public:
-  // Argument timeout is in seconds.
-  Server(std::string separator, size_t bufferLen,
-         std::chrono::milliseconds timeout);
+  typedef std::chrono::time_point<std::chrono::system_clock> TimePoint;
 
-  void Configure(std::vector<DealConfig> deals_);
-  [[nodiscard]] MaybeError Listen(in_port_t port, int maxTcpQueueLen);
+  Server();
+
+  void Configure(std::vector<DealConfig> deals_,
+                 std::optional<std::chrono::seconds> maxTimeout_);
+  [[nodiscard]] MaybeError Listen(std::optional<in_port_t> port);
   [[nodiscard]] MaybeError Run();
 
   void EnableDebug();
 
  private:
-  typedef std::chrono::time_point<std::chrono::system_clock> TimePoint;
-
   class Deadline {
    public:
-    // Set to ms milliseconds into the future.
-    void Set(std::chrono::milliseconds ms);
+    Deadline(std::chrono::milliseconds timeout);
 
+    // Set to ms milliseconds into the future.
+    void Reset();
+    void Set(TimePoint timePoint);
+
+    [[nodiscard]] TimePoint Get() const;
     [[nodiscard]] std::chrono::milliseconds GetTimeLeft() const;
     [[nodiscard]] bool IsOverdue() const;
 
    private:
     TimePoint deadline;
+    const std::chrono::milliseconds timeout;
   };
 
-  struct Connection {
-    // This socketFd will be closed by connectionStore.
-    int socketFd;
-    std::optional<Deadline> responseDeadline;
+  class Player {
+   public:
+    Player(Seat seat);
+
+    void AddPoints(int x);
+    void ResetScore();
+    void SetFd(std::optional<int> fd_);
+
+    [[nodiscard]] int GetScore() const;
+    [[nodiscard]] int GetTotal() const;
+    [[nodiscard]] std::optional<int> GetFd() const;
+    [[nodiscard]] Seat GetSeat() const;
+
+   private:
+    int score;
+    int total;
+    // Might not be connected at the moment.
+    std::optional<int> fd;
+    const Seat seat;
+  };
+
+  struct Candidate {
+    int fd;
+    Deadline deadline;
   };
 
   struct TrickRecord {
@@ -47,30 +71,16 @@ class Server {
     Seat taker;
   };
 
-  class Points {
-   public:
-    [[nodiscard]] MaybeError Add(int x);
-
-    [[nodiscard]] int GetScore() const;
-    [[nodiscard]] int GetTotal() const;
-   private:
-    int score;
-    int total;
-  };
-
   // On return there are four players playing the game,
   // i.e. all fields of seatMap contain a value.
   // If sendState is true, then send the state of the game after
   // a connection becomes a player.
-  [[nodiscard]] MaybeError SafeUpdate(bool sendState);
+  [[nodiscard]] MaybeError SafeUpdate();
   // If sendState is true, then send the state of the game after
   // a connection becomes a player.
-  // Other than that, the method neither receives nor
-  // sends messages to players.
-  [[nodiscard]] MaybeError Update(bool sendState);
+  [[nodiscard]] MaybeError Update();
 
-  // Assumes that updateRes.msgs contains at most a single message from
-  // each player. Assumes the game is ongoing.
+  // Assumes the game is ongoing. On return places pending messages and kicked players to data.
   [[nodiscard]] MaybeError HandlePlayerMessages();
 
   // Sets responseDeadline.
@@ -78,7 +88,7 @@ class Server {
   // Removes the response deadline.
   [[nodiscard]] MaybeError PromoteToPlayer(int socketFd, Seat seat);
   [[nodiscard]] MaybeError PopConnection(int socketFd);
-  // Pushes socketFd to updateArg.closed.
+  // Pushes socketFd to updateArg.closed and calls PopConnection.
   [[nodiscard]] MaybeError CloseConnection(int socketFd);
 
   // Calls Game::Deal and sends deal messages to all players.
@@ -87,34 +97,27 @@ class Server {
   // Send current trick to the active player and set their response deadline.
   [[nodiscard]] MaybeError SendTrick();
 
-  [[nodiscard]] MaybeError ResetResponseDeadline(Seat seat);
-  [[nodiscard]] MaybeError IsResponseOverdue(Seat seat, bool &isOverdue) const;
-
-  [[nodiscard]] MaybeError GetPlayerFd(Seat seat, int &socketFd) const;
-
   [[nodiscard]] static std::unique_ptr<Error> ErrorSocket(std::string funName);
-
   [[nodiscard]] static std::unique_ptr<Error> ErrorEmptySeat(std::string funName);
 
   Game game;
-  int nPlayers = 0;
   // In revrese order to the one given in Configure.
-  // This way we can use the vectore like a stack.
+  // This way we can use the vectore as a stack.
   std::vector<DealConfig> deals;
   std::vector<TrickRecord> tricks;
-  std::array<Points, 4> points;
   // In milliseconds.
-  const std::chrono::milliseconds timeout;
+  std::chrono::milliseconds maxTimeout{5000};
   ConnectionStore connectionStore;
-  std::vector<Connection> connections;
+  std::vector<Candidate> candidates;
+  // Map fds to an index to deadlines.
   std::unordered_map<int, size_t> candidateMap;
+  std::array<Player, 4> players{{{Seat::Value::kN}, {Seat::Value::kE},
+                                 {Seat::Value::kS}, {Seat::Value::kE}}};
   std::unordered_map<int, Seat> playerMap;
-  std::array<std::optional<size_t>, 4> seatMap;
-  // Input for ConnectionStore::Update.
-  ConnectionStore::UpdateData updateArg;
-  // Output from ConnectionStore::Update.
-  ConnectionStore::UpdateData updateRes;
+  ConnectionStore::UpdateData<int> updateData;
+  // Received
+  std::vector<ConnectionStore::Message<Seat>> playerMessages;
+  Deadline trickDeadline;
 };
 
 #endif  // SERVER_H
-

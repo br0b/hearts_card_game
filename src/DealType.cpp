@@ -3,7 +3,7 @@
 #include "Utilities.h"
 
 MaybeError DealType::Parse(std::string str) {
-  std::optional<int> type = Utilities::ParseInt(str, 1, 7);
+  std::optional<int> type = Utilities::ParseNumber(str, 1, 7);
 
   if (!type.has_value()) {
     return Error::InvalidArgs("DealType::Parse");

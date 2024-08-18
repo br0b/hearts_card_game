@@ -13,32 +13,29 @@
 
 class ConnectionStore {
  public:
+  template <typename TId>
   struct Message {
-    // If argument, then fd. Internally a vector index.
-    size_t id;
+    TId id;
     std::string content;
   };
 
   // When as an argument: a connection can be in closed or msgs or both.
   // When returned: a connection can't be only in msgs xor opened xor closed.
+  template <typename TId>
   struct UpdateData {
-    std::vector<Message> msgs;
+    std::vector<Message<TId>> msgs;
     std::optional<int> opened;
-    std::vector<size_t> closed;
+    std::vector<TId> closed;
   };
-
-  // A fd can be in both pending and disconnectIndex.
-  // Parameter bufferLen is the size of the buffer used for reads and writes.
-  ConnectionStore(const std::string &separator, size_t bufferLen);
 
   ~ConnectionStore();
 
-  [[nodiscard]] MaybeError Listen(in_port_t port, int maxTcpQueueLen);
+  [[nodiscard]] MaybeError Listen(std::optional<in_port_t> port);
   // Argument data should contain outgoing messages and fds to close.
   // Return received messages and closed ids in the same argument.
   // Don't return the same socket fds as on input.
   [[nodiscard]] MaybeError Update(
-      UpdateData &data,
+      UpdateData<int> &data,
       std::optional<std::chrono::milliseconds> timeout);
 
   void EnableDebug();
@@ -49,10 +46,10 @@ class ConnectionStore {
   [[nodiscard]] bool IsEmpty() const;
 
 private:
-  [[nodiscard]] MaybeError PrePoll(UpdateData &input);
-  [[nodiscard]] MaybeError PushBuffers(const std::vector<Message> &pending);
+  [[nodiscard]] MaybeError PrePoll(UpdateData<int> &input);
+  [[nodiscard]] MaybeError PushBuffers(const std::vector<Message<size_t>> &pending);
   [[nodiscard]] MaybeError StopReceiving(const std::vector<size_t> &fds);
-  [[nodiscard]] MaybeError UpdateBuffers(UpdateData &output);
+  [[nodiscard]] MaybeError UpdateBuffers(UpdateData<int> &output);
   // Put new client fd in opened.
   [[nodiscard]] MaybeError UpdateListening(std::optional<int> &opened);
 
@@ -72,19 +69,21 @@ private:
   // +++ pollfd = index + 1 +++
 
   [[nodiscard]] MaybeError GetId(int fd, size_t &id) const;
-  // TODO: Replace with ConvertInput and ConvertOutput.
-  [[nodiscard]] MaybeError Convert(UpdateData &data) const;
+  // Argument src is invalidaded.
+  [[nodiscard]] MaybeError Convert(UpdateData<int> &src,
+                                   UpdateData<size_t> &dst) const;
 
-  void ReportUpdateData(const UpdateData &data) const;
+  void ReportUpdateData(const UpdateData<int> &data) const;
 
   // First pollfd is reserved for a listening socket.
   std::vector<pollfd> pollfds;
   std::vector<std::unique_ptr<MessageBuffer>> connections;
 
-  std::string separator;
+  static constexpr const char *kSeparator = "\r\n";
+  static constexpr int kMaxTCPQueueLength = 128;
 
   // Buffer used for read/write operations.
-  std::vector<char> buffer;
+  std::vector<char> buffer = std::vector<char>(4096);
   std::unordered_map<int, size_t> fdMap;
   bool debugMode;
 };

@@ -14,46 +14,42 @@
 #include "MaybeError.h"
 #include "Utilities.h"
 
-ConnectionStore::ConnectionStore(const std::string &separator, 
-                                 size_t bufferLen)
-    : separator(separator), buffer(bufferLen) {}
-
 ConnectionStore::~ConnectionStore() {
   for (const pollfd &pfd : pollfds) {
     close(pfd.fd);
   }
 }
 
-MaybeError ConnectionStore::Listen(in_port_t port, int maxTcpQueueLen) {
+MaybeError ConnectionStore::Listen(std::optional<in_port_t> port) {
   std::ostringstream oss;
   MaybeError error = std::nullopt;
-  Utilities::Socket s = {-1, port};
+  Utilities::Socket s = {std::nullopt, port};
 
   if (error = Utilities::GetBoundSocket(AF_INET6, s); error.has_value()) {
     std::string str = error.value()->GetMessage();
     return error;
   }
 
-  int ret = listen(s.fd, maxTcpQueueLen);
+  int ret = listen(*s.fd, kMaxTCPQueueLength);
   if (ret < 0) {
     return Error::FromErrno("ConnectionStore::Listen");
   }
 
   // Get actual port.
-  if (error = Utilities::GetPortFromFd(s.fd, port); error.has_value()) {
+  if (error = Utilities::GetPortFromFd(*s.fd, *port); error.has_value()) {
     return error;
   }
 
-  pollfds.emplace_back(s.fd, POLLIN, 0);
+  pollfds.emplace_back(*s.fd, POLLIN, 0);
 
-  oss << "Listening on port " << port << ".";
+  oss << "Listening on port " << *port << ".";
   Logger::Log(oss.str());
 
   return std::nullopt;
 }
 
 MaybeError ConnectionStore::Update(
-    UpdateData &data,
+    UpdateData<int> &data,
     std::optional<std::chrono::milliseconds> timeout) {
   MaybeError error = std::nullopt;
   time_t pollTimeout = timeout.has_value() ? timeout->count() : -1;
@@ -103,7 +99,7 @@ void ConnectionStore::EnableDebug() {
 
 [[nodiscard]] MaybeError ConnectionStore::Close() {
   std::vector<size_t> allIds(connections.size());
-  UpdateData data;
+  UpdateData<int> data;
   MaybeError error;
 
   close(pollfds.begin()->fd);
@@ -133,18 +129,19 @@ bool ConnectionStore::IsEmpty() const {
   return connections.empty();
 }
 
-MaybeError ConnectionStore::PrePoll(UpdateData &input) {
+MaybeError ConnectionStore::PrePoll(UpdateData<int> &input) {
   MaybeError error = std::nullopt;
+  UpdateData<size_t> converted;
 
-  if (error = Convert(input); error.has_value()) {
+  if (error = Convert(input, converted); error.has_value()) {
     return error;
   }
 
-  if (error = PushBuffers(input.msgs); error.has_value()) {
+  if (error = PushBuffers(converted.msgs); error.has_value()) {
     return error;
   }
 
-  if (error = StopReceiving(input.closed); error.has_value()) {
+  if (error = StopReceiving(converted.closed); error.has_value()) {
     return error;
   }
 
@@ -152,10 +149,10 @@ MaybeError ConnectionStore::PrePoll(UpdateData &input) {
 }
 
 MaybeError ConnectionStore::PushBuffers(
-      const std::vector<Message> &pending) {
+      const std::vector<Message<size_t>> &pending) {
   MaybeError error = std::nullopt;
 
-  for (const Message &msg : pending) {
+  for (const Message<size_t> &msg : pending) {
     pollfds[msg.id + 1].events |= POLLOUT;
     connections[msg.id]->PushMessage(msg.content);
   }
@@ -181,7 +178,7 @@ MaybeError ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
 }
 
 // TODO: Move nested code to UpdateIncoming and UpdateOutgoing.
-MaybeError ConnectionStore::UpdateBuffers(UpdateData &output) {
+MaybeError ConnectionStore::UpdateBuffers(UpdateData<int> &output) {
   MaybeError error = std::nullopt;
   MessageBuffer::Result res;
   std::optional<std::string> msg;
@@ -200,7 +197,7 @@ MaybeError ConnectionStore::UpdateBuffers(UpdateData &output) {
       }
 
       if (res.IsClosed()) {
-        output.closed.push_back((size_t)pfd.fd);
+        output.closed.push_back(pfd.fd);
         continue;
       } else {
         if (error = res.GetMessage(msg); error.has_value()) {
@@ -208,7 +205,7 @@ MaybeError ConnectionStore::UpdateBuffers(UpdateData &output) {
         }
 
         if (msg.has_value()) {
-          output.msgs.push_back({(size_t)pfd.fd, std::move(*msg)});
+          output.msgs.push_back({pfd.fd, std::move(*msg)});
         }
       }
     }
@@ -248,7 +245,7 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
   }
 
   sockaddr_storage addr;
-  socklen_t addrlen;
+  socklen_t addrlen = sizeof(addr);
 
   int fd = accept(pollfds[0].fd, (sockaddr *)&addr, &addrlen);
   if (fd < 0) {
@@ -293,7 +290,7 @@ MaybeError ConnectionStore::Push(int fd) {
   }
 
   pollfds.emplace_back(fd, POLLIN, 0);
-  connections.push_back(std::make_unique<MessageBuffer>(buffer, separator));
+  connections.push_back(std::make_unique<MessageBuffer>(buffer, kSeparator));
   fdMap.emplace(fd, connections.size() - 1);
   return connections.back()->SetSocket(fd);
 }
@@ -329,25 +326,33 @@ MaybeError ConnectionStore::GetId(int fd, size_t &id) const {
   return std::nullopt;
 }
 
-MaybeError ConnectionStore::Convert(UpdateData &data) const {
+MaybeError ConnectionStore::Convert(UpdateData<int> &src,
+                                    UpdateData<size_t> &dst) const {
   MaybeError error = std::nullopt;
+  dst = {{}, std::nullopt, {}};
 
-  for (Message &msg : data.msgs) {
-    if (error = GetId(msg.id, msg.id); error.has_value()) {
+  for (auto &msg : src.msgs) {
+    dst.msgs.emplace_back();
+    dst.msgs.back().content = std::move(msg.content);
+    if (error = GetId(msg.id, dst.msgs.back().id); error.has_value()) {
       return error;
     }
   }
 
-  for (size_t &id: data.closed) {
-    if (error = GetId(id, id); error.has_value()) {
+  dst.opened = src.opened;
+
+  for (auto &id: src.closed) {
+    dst.closed.emplace_back();
+    if (error = GetId(id, dst.closed.back()); error.has_value()) {
       return error;
     }
   }
 
+  src = {{}, std::nullopt, {}};
   return std::nullopt;
 }
 
-void ConnectionStore::ReportUpdateData(const UpdateData &data) const {
+void ConnectionStore::ReportUpdateData(const UpdateData<int> &data) const {
   std::ostringstream oss;
 
   oss<< "Messages: ";

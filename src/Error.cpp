@@ -16,7 +16,21 @@ std::unique_ptr<Error> Error::FromErrno(std::string funName_) {
 }
 
 std::unique_ptr<Error> Error::InvalidArgs(std::string funName_) {
-  return std::make_unique<Error>(std::move(funName_), "Invalid argument.");
+  return std::make_unique<Error>(std::move(funName_), "Invalid arguments.");
+}
+
+std::unique_ptr<Error> Error::InvalidArg(std::string funName_,
+                                        std::string argName) {
+  return std::make_unique<Error>(
+      std::move(funName_),
+      "Argument \"" + std::move(argName) + "\" is invalid.");
+}
+
+std::unique_ptr<Error> Error::ArgOmitted(std::string funName_,
+                                         std::string argName) {
+  return std::make_unique<Error>(
+      std::move(funName_),
+      "Argument \"" + std::move(argName) + "\" was ommited.");
 }
 
 std::unique_ptr<Error> Error::OutOfRange(std::string funName_) {

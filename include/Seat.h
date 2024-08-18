@@ -15,6 +15,9 @@ class Seat {
     kW,
   };
 
+  Seat();
+  Seat(Value value);
+
   MaybeError Parse(std::string str);
 
   void Set(Value value_);
@@ -26,7 +29,7 @@ class Seat {
   friend bool operator==(const Seat &l, const Seat &r);
 
  private:
-  Value value = Value::kN;
+  Value value{Value::kN};
 
   static constexpr std::array<char, 4> chars{'N', 'E', 'S', 'W'};
 };

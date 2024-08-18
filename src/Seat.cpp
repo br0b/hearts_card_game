@@ -1,6 +1,10 @@
 #include "Seat.h"
 #include "MaybeError.h"
 
+Seat::Seat() {}
+
+Seat::Seat(Value value) : value(value) {}
+
 MaybeError Seat::Parse(std::string str) {
   if (str.size() != 1) {
     return Error::InvalidArgs("Seat::Parse");

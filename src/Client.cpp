@@ -32,12 +32,12 @@ MaybeError Client::Connect(
     return error;
   }
 
-  if (error = Utilities::ConnectSocket(s.fd, serverAddr);
+  if (error = Utilities::ConnectSocket(*s.fd, serverAddr);
       error.has_value()) {
     return error;
   }
 
-  pollfds.emplace_back(s.fd, POLLIN, 0);
+  pollfds.emplace_back(*s.fd, POLLIN, 0);
   // TODO: Set messageBuffers.
   return std::nullopt;
 }

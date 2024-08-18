@@ -10,6 +10,10 @@ class Error {
 
   [[nodiscard]] static std::unique_ptr<Error> FromErrno(std::string funName_);
   [[nodiscard]] static std::unique_ptr<Error> InvalidArgs(std::string funName_);
+  [[nodiscard]] static std::unique_ptr<Error> InvalidArg(std::string funName_,
+                                                         std::string argName);
+  [[nodiscard]] static std::unique_ptr<Error> ArgOmitted(std::string funName_,
+                                                         std::string argName);
   [[nodiscard]] static std::unique_ptr<Error> OutOfRange(std::string funName_);
 
   // Argument funName is the name of the function that set the errno.

@@ -52,7 +52,7 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
       players[static_cast<size_t>(seat.Get())] = true;
     }
 
-    if (p = Utilities::ParseInt((*it)[2], 0, INT_MAX);
+    if (p = Utilities::ParseNumber((*it)[2], 0, INT_MAX);
         !p.has_value()) {
       return error;
     }

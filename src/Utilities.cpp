@@ -39,7 +39,7 @@ MaybeError Utilities::CreateAddress(std::string host, in_port_t port,
 
 MaybeError Utilities::GetBoundSocket(int ai_family, Socket &s) {
   struct sockaddr_storage addr_storage;
-  in_port_t netPort = htons(s.port);
+  in_port_t netPort = htons(s.port.value_or(0));
 
   if (s.fd = socket(ai_family, SOCK_STREAM, 0); s.fd < 0) {
     return Error::FromErrno("socket");
@@ -59,16 +59,16 @@ MaybeError Utilities::GetBoundSocket(int ai_family, Socket &s) {
     addr->sin6_port = netPort;
   }
 
-  if (bind(s.fd, (struct sockaddr *)&addr_storage, sizeof(addr_storage)) < 0) {
+  if (bind(*s.fd, (struct sockaddr *)&addr_storage, sizeof(addr_storage)) < 0) {
     return Error::FromErrno("bind");
   }
 
-  if (MaybeError error = GetAddressFromFd(s.fd, addr_storage);
+  if (MaybeError error = GetAddressFromFd(*s.fd, addr_storage);
       error.has_value()) {
     return error;
   }
 
-  if (MaybeError error = GetPortFromAddress(addr_storage, s.port);
+  if (MaybeError error = GetPortFromAddress(addr_storage, *s.port);
       error.has_value()) {
     return error;
   }
@@ -258,19 +258,4 @@ MaybeError Utilities::GetPortFromAddress(
   return std::nullopt;
 }
 
-std::optional<int> Utilities::ParseInt(std::string str, int l, int r) {
-  int ret = 0;
-
-  try {
-    ret = std::stoi(str);
-
-    if (ret < l || ret > r) {
-      return std::nullopt;
-    }
-  } catch (std::logic_error &e) {
-    return std::nullopt;
-  }
-
-  return ret;
-}
 
