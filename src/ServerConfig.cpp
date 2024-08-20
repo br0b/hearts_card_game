@@ -42,6 +42,11 @@ ServerConfig::FromMainArgs(int argc, char *argv[]) {
     return Error::ArgOmitted("ServerConfig::FromMainArgs", "file");
   }
 
+  if (optind < argc) {
+    return std::make_unique<Error>("ServerConfig::FromMainArgs",
+                                   "Unnecesarry non-option arguments");
+  }
+
   auto config = std::make_unique<ServerConfig>(*configFile);
   if (port.has_value()) {
     config->SetPort(port.value());

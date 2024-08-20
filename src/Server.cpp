@@ -20,6 +20,7 @@
 #include "MessageTaken.h"
 #include "MessageTrick.h"
 #include "MessageWrong.h"
+#include "TrickNumber.h"
 #include "Server.h"
 
 Server::Server() : trickDeadline(maxTimeout) {}
@@ -77,6 +78,7 @@ MaybeError Server::Run() {
 
 void Server::EnableDebug() {
   connectionStore.EnableDebug();
+  debugMode = true;
 }
 
 MaybeError Server::SafeUpdate() {
@@ -97,7 +99,6 @@ MaybeError Server::Update() {
   std::optional<std::chrono::milliseconds> timeout;
 
   if (playerMap.size() == 4) {
-    std::cerr << trickDeadline.GetTimeLeft() << '\n';
     timeout = trickDeadline.GetTimeLeft();
   }
 
@@ -175,23 +176,22 @@ MaybeError Server::Update() {
             return error;
           }
           if (game.GetCurrentTrick().has_value()) {
-            Hand hand;
             TrickNumber trickNumber;
             MessageDeal msgDeal;
-            MessageTaken msgTaken;
             msgDeal.SetFirst(deals.back().GetFirst());
             msgDeal.SetHand(
                 deals.back().GetHands()[msgIam.GetSeat().GetIndex()]);
             msgDeal.SetType(deals.back().GetType());
             updateData.msgs.emplace_back(msg.id, msgDeal.Str());
-            for (size_t i = 0; i < tricks.size(); i++) {
-              hand.Set(tricks[i].cards.begin(), tricks[i].cards.end());
-              msgTaken.SetCards(hand);
-              msgTaken.SetTaker(tricks[i].taker);
+
+            for (size_t i = 1; i <= tricks.size(); i++) {
+              if (error = SendTaken(trickNumber, msgIam.GetSeat());
+                  error.has_value()) {
+                return error;
+              }
               if (error = trickNumber.Set(i + 1); error.has_value()) {
                 return error;
               }
-              updateData.msgs.emplace_back(msg.id, msgTaken.Str());
             }
           }
         }
@@ -211,10 +211,11 @@ MaybeError Server::Update() {
 
 MaybeError Server::HandlePlayerMessages() {
   MaybeError error;
-  std::optional<Game::Trick> trick = game.GetCurrentTrick();
+  const std::optional<Game::Trick> &trick = game.GetCurrentTrick();
   int fd;
   std::optional<int> tmpFd;
   std::array<int, 4> playerFds;
+  bool isTrickReceived = false;
 
   if (!trick.has_value()) {
     return Game::NotStarted("Server::HandlePlayerMessages");
@@ -238,13 +239,21 @@ MaybeError Server::HandlePlayerMessages() {
     try {
       auto m = Message::Deserialize(msg.content);
       if (m != nullptr) {
-        MessageTrick &msgTrick = dynamic_cast<MessageTrick &>(*m);
+        const MessageTrick &msgTrick = dynamic_cast<MessageTrick &>(*m);
+        isTrickReceived = true;
         std::vector<Card> cards = msgTrick.GetCards().Get();
         
         if (msg.id != trick->turn
             || msgTrick.GetTrickNumber() != trick->number
             || cards.size() != 1
             || !game.IsMoveLegal(msg.id, cards.at(0))) {
+          if (debugMode) {
+            std::cerr << (msg.id != trick->turn)
+                      << (msgTrick.GetTrickNumber() != trick->number)
+                      << (cards.size() != 1)
+                      << !game.IsMoveLegal(msg.id, cards.at(0)) << '\n';
+            exit(1);
+          }
           MessageWrong msgWrong;
           msgWrong.SetTrickNumber(trick->number);
           updateData.msgs.emplace_back(fd, msgWrong.Str());
@@ -258,22 +267,24 @@ MaybeError Server::HandlePlayerMessages() {
           return error;
         }
 
-        trick = game.GetCurrentTrick();
-
         if (!result.has_value()) {
           continue;
         }
 
         // Finished trick.
-        players.at(msg.id.GetIndex()).AddPoints(result->points);
+        tricks.emplace_back(result->cards, result->taker);
+        players.at(result->taker.GetIndex()).AddPoints(result->points);
+        Seat seat;
+        for (int i = 0; i < 4; i++) {
+          if (MaybeError error = SendTaken(msgTrick.GetTrickNumber(), seat);
+              error.has_value()) {
+            return error;
+          }
+          seat.CycleClockwise();
+        }
 
-        if (trick.has_value()) {
-          std::array<Card, 4> cardsArr = {trick->cards.at(0),
-                                          trick->cards.at(1),
-                                          trick->cards.at(2),
-                                          cards.at(0)};
-          tricks.emplace_back(std::move(cardsArr), result->taker);
-        } else {
+        // Finished deal.
+        if (!trick.has_value()) {
           MessagePoints msgPoints("SCORE");
           std::array<int, 4> score;
           std::array<int, 4> total;
@@ -284,12 +295,12 @@ MaybeError Server::HandlePlayerMessages() {
             players.at(i).ResetScore();
           }
           for (int fd : playerFds) {
+            msgPoints.SetHeader("SCORE");
+            msgPoints.SetPoints(score);
             updateData.msgs.emplace_back(fd, msgPoints.Str());
             msgPoints.SetHeader("TOTAL");
             msgPoints.SetPoints(total);
             updateData.msgs.emplace_back(fd, msgPoints.Str());
-            msgPoints.SetHeader("SCORE");
-            msgPoints.SetPoints(score);
           }
 
           deals.pop_back();
@@ -308,7 +319,7 @@ MaybeError Server::HandlePlayerMessages() {
         if (error = CloseConnection(fd); error.has_value()) {
           return error;
         }
-        continue;
+        return std::nullopt;
       }
     } catch (std::out_of_range &e) {
       return Error::OutOfRange("Server::HandlePlayerMessages");
@@ -317,11 +328,11 @@ MaybeError Server::HandlePlayerMessages() {
       if (error = CloseConnection(fd); error.has_value()) {
         return error;
       }
-      continue;
+      return std::nullopt;
     }
   }
 
-  if (trick.has_value() && trickDeadline.IsOverdue()) {
+  if (trick.has_value() && (isTrickReceived || trickDeadline.IsOverdue())) {
     return SendTrick();
   }
 
@@ -370,7 +381,10 @@ MaybeError Server::PopConnection(int socketFd) {
     candidates.pop_back();
     candidateMap.erase(socketFd);
   } else if (playerMap.contains(socketFd)) {
+    auto tmp = playerMessages;
     Seat seat = playerMap.at(socketFd);
+    std::copy_if(tmp.begin(), tmp.end(), std::back_inserter(playerMessages),
+                 [seat](const auto &m){ return m.id != seat; });
     if (!players.at(seat.GetIndex()).GetFd().has_value()) {
       return ErrorEmptySeat("Server::PopConnection");
     }
@@ -405,6 +419,28 @@ MaybeError Server::NewDeal() {
   return game.Deal(deals.back());
 }
 
+MaybeError Server::SendTaken(TrickNumber trickNumber, Seat seat) {
+  size_t trickIndex = trickNumber.Get() - 1;
+  std::optional<int> fd;
+
+  if (trickIndex >= tricks.size()) {
+    return Error::InvalidArg("Server::SendTaken", "trickNumber");
+  } else if (!(fd = players.at(seat.GetIndex()).GetFd()).has_value()) {
+    return ErrorEmptySeat("Server::SendTaken");
+  }
+
+  auto cards = tricks.at(trickIndex).cards;
+  Hand hand;
+  hand.Set(cards);
+
+  MessageTaken msgTaken;
+  msgTaken.SetTrickNumber(trickNumber);
+  msgTaken.SetCards(hand);
+  msgTaken.SetTaker(tricks.at(trickIndex).taker);
+  updateData.msgs.emplace_back(fd.value(), msgTaken.Str());
+  return std::nullopt;
+}
+
 MaybeError Server::SendTrick() {
   MaybeError error;
   const auto &trick = game.GetCurrentTrick();
@@ -414,7 +450,7 @@ MaybeError Server::SendTrick() {
   }
 
   Hand hand;
-  hand.Set(trick->cards.begin(), trick->cards.end());
+  hand.Set(trick->cards);
 
   std::optional<int> fd;
   if (!(fd = players.at(trick.value().turn.GetIndex()).GetFd()).has_value()) {

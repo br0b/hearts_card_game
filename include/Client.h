@@ -1,11 +1,14 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <memory>
 #include <netdb.h>
 #include <sys/poll.h>
-#include <unistd.h>
 #include <optional>
+#include <unistd.h>
+#include <unordered_set>
 
+#include "Card.h"
 #include "ConnectionProtocol.h"
 #include "MessageBuffer.h"
 #include "MaybeError.h"
@@ -26,16 +29,29 @@ class Client {
   [[nodiscard]] MaybeError Run(bool isAutomatic);
 
  private:
+  [[nodiscard]] MaybeError HandleServerMessage(std::string msg);
+
   // The return address family will be used with getaddrinfo.
   [[nodiscard]] static int GetAddressFamily(
       std::optional<ConnectionProtocol> protocol);
 
+  [[nodiscard]] std::unique_ptr<Error> ErrorDeserialize(std::string funName,
+                                                        std::string msg);
+
   Seat seat;
-  std::vector<char> buffer = std::vector<char>(4096);
-  MessageBuffer server;
-  std::unique_ptr<MessageBuffer> user;
+  std::array<char, 4096> buffer;
+  MessageBuffer server{buffer};
+  MessageBuffer user{buffer};
   // The first field is the server and the second is stdin.
-  std::vector<pollfd> pollfds;
+  std::array<pollfd, 2> pollfds{{{-1, 0, 0}, {-1, 0, 0}}};
+  std::array<std::unordered_set<Card>, 4> cards;
+  std::vector<Card> taken;
+  int nPointMessagesReceived = 0;
+  int nextTrickNumber = 1;
+  bool isPlayerInputNeeded = false;
+  std::optional<Card> playerInput;
+  static constexpr size_t kServerId = 0;
+  static constexpr size_t kUserId = 1;
 };
 
 #endif //CLIENT_H

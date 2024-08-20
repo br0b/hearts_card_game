@@ -48,7 +48,7 @@ class ConnectionStore {
 private:
   [[nodiscard]] MaybeError PrePoll(UpdateData<int> &input);
   [[nodiscard]] MaybeError PushBuffers(const std::vector<Message<size_t>> &pending);
-  [[nodiscard]] MaybeError StopReceiving(const std::vector<size_t> &fds);
+  [[nodiscard]] MaybeError StopReceiving(int fd);
   [[nodiscard]] MaybeError UpdateBuffers(UpdateData<int> &output);
   // Put new client fd in opened.
   [[nodiscard]] MaybeError UpdateListening(std::optional<int> &opened);
@@ -82,9 +82,9 @@ private:
   static constexpr int kMaxTCPQueueLength = 128;
 
   // Buffer used for read/write operations.
-  std::vector<char> buffer = std::vector<char>(4096);
+  std::array<char, 4096> buffer;
   std::unordered_map<int, size_t> fdMap;
-  bool debugMode;
+  bool debugMode = false;
 };
 
 #endif  // CONNECTION_STORE_H

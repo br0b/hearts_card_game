@@ -1,8 +1,9 @@
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <memory>
-#include <numeric>
 #include <netinet/in.h>
 #include <optional>
 #include <sstream>
@@ -12,6 +13,7 @@
 #include "ConnectionStore.h"
 #include "Logger.h"
 #include "MaybeError.h"
+#include "MessageBuffer.h"
 #include "Utilities.h"
 
 ConnectionStore::~ConnectionStore() {
@@ -30,20 +32,17 @@ MaybeError ConnectionStore::Listen(std::optional<in_port_t> port) {
     return error;
   }
 
-  int ret = listen(*s.fd, kMaxTCPQueueLength);
+  int ret = listen(s.fd.value(), kMaxTCPQueueLength);
   if (ret < 0) {
     return Error::FromErrno("ConnectionStore::Listen");
   }
 
-  // Get actual port.
-  if (error = Utilities::GetPortFromFd(*s.fd, *port); error.has_value()) {
-    return error;
+  pollfds.emplace_back(s.fd.value(), POLLIN, 0);
+
+  if (debugMode) {
+    oss << "Listening on port " << s.port.value() << ".";
+    Logger::Log(oss.str());
   }
-
-  pollfds.emplace_back(*s.fd, POLLIN, 0);
-
-  oss << "Listening on port " << *port << ".";
-  Logger::Log(oss.str());
 
   return std::nullopt;
 }
@@ -55,7 +54,7 @@ MaybeError ConnectionStore::Update(
   time_t pollTimeout = timeout.has_value() ? timeout->count() : -1;
 
   if (debugMode) {
-    Logger::Report("Update. Timeout: " + std::to_string(pollTimeout));
+    std::cerr << "Update. Timeout: " << pollTimeout << " ";
     ReportUpdateData(data);
   }
 
@@ -74,19 +73,12 @@ MaybeError ConnectionStore::Update(
       return error;
     }
 
-    for (size_t fd : data.closed) {
-      if (error = Pop(fd); error.has_value()) {
-        return error;
-      }
-    }
-
     if (error = UpdateListening(data.opened); error.has_value()) {
       return error;
     }
   }
 
   if (debugMode) {
-    Logger::Report("Update results");
     ReportUpdateData(data);
   }
 
@@ -98,15 +90,20 @@ void ConnectionStore::EnableDebug() {
 }
 
 [[nodiscard]] MaybeError ConnectionStore::Close() {
-  std::vector<size_t> allIds(connections.size());
+  std::vector<int> connectionFds;
   UpdateData<int> data;
   MaybeError error;
 
   close(pollfds.begin()->fd);
-  pollfds.at(0) = {-1, 0, 0};
-  std::iota(allIds.begin(), allIds.end(), 0);
-  if (error = StopReceiving(allIds); error.has_value()) {
-    return error;
+  *pollfds.begin() = {-1, 0, 0};
+
+  std::transform(pollfds.begin() + 1, pollfds.end(),
+                 std::back_inserter(connectionFds),
+                 [](pollfd pfd){ return pfd.fd; });
+  for (int fd : connectionFds) {
+    if (error = StopReceiving(fd); error.has_value()) {
+      return error;
+    }
   }
 
   while (!connections.empty()) {
@@ -141,35 +138,8 @@ MaybeError ConnectionStore::PrePoll(UpdateData<int> &input) {
     return error;
   }
 
-  if (error = StopReceiving(converted.closed); error.has_value()) {
-    return error;
-  }
-
-  return std::nullopt;
-}
-
-MaybeError ConnectionStore::PushBuffers(
-      const std::vector<Message<size_t>> &pending) {
-  MaybeError error = std::nullopt;
-
-  for (const Message<size_t> &msg : pending) {
-    pollfds[msg.id + 1].events |= POLLOUT;
-    connections[msg.id]->PushMessage(msg.content);
-  }
-
-  return std::nullopt;
-}
-
-MaybeError ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
-  MaybeError error;
-
-  for (size_t id : ids) {
-    pollfds[id + 1].events &= ~POLLIN;
-    connections[id]->ClearIncoming();
-    if (!connections[id]->IsEmpty()) {
-      continue;
-    }
-    if (error = Pop(pollfds[id + 1].fd); error.has_value()) {
+  for (int fd : input.closed) {
+    if (error = StopReceiving(fd); error.has_value()) {
       return error;
     }
   }
@@ -177,10 +147,33 @@ MaybeError ConnectionStore::StopReceiving(const std::vector<size_t> &ids) {
   return std::nullopt;
 }
 
+MaybeError ConnectionStore::PushBuffers(
+      const std::vector<Message<size_t>> &pending) {
+  for (const Message<size_t> &msg : pending) {
+    pollfds.at(msg.id + 1).events |= POLLOUT;
+    connections.at(msg.id)->PushMessage(msg.content);
+  }
+
+  return std::nullopt;
+}
+
+[[nodiscard]] MaybeError ConnectionStore::StopReceiving(int fd) {
+  size_t id;
+  if (MaybeError error = GetId(fd, id); error.has_value()) {
+    return error;
+  }
+
+  pollfds.at(id + 1).events &= ~POLLIN;
+  connections.at(id)->ClearIncoming();
+  if (!connections.at(id)->IsOutgoingEmpty()) {
+    return std::nullopt;
+  }
+  return Pop(pollfds[id + 1].fd);
+}
+
 // TODO: Move nested code to UpdateIncoming and UpdateOutgoing.
 MaybeError ConnectionStore::UpdateBuffers(UpdateData<int> &output) {
   MaybeError error = std::nullopt;
-  MessageBuffer::Result res;
   std::optional<std::string> msg;
   output.msgs.clear();
   output.closed.clear();
@@ -191,18 +184,17 @@ MaybeError ConnectionStore::UpdateBuffers(UpdateData<int> &output) {
 
   for (size_t i = 0; i < connections.size(); i++) {
     pollfd &pfd = pollfds[i + 1];
+    auto &c = connections.at(i);
     if (pfd.revents & (POLLIN | POLLERR)) {
-      if (error = connections[i]->Receive(res); error.has_value()) {
+      if (error = c->Receive(); error.has_value()) {
         return error;
       }
 
-      if (res.IsClosed()) {
+      if (!c->IsOpen()) {
         output.closed.push_back(pfd.fd);
         continue;
       } else {
-        if (error = res.GetMessage(msg); error.has_value()) {
-          return error;
-        }
+        msg = c->PopMessage();
 
         if (msg.has_value()) {
           output.msgs.push_back({pfd.fd, std::move(*msg)});
@@ -211,13 +203,16 @@ MaybeError ConnectionStore::UpdateBuffers(UpdateData<int> &output) {
     }
 
     if (pfd.revents & POLLOUT) {
-      if (error = connections[i]->Send(res); error.has_value()) {
+      if (c->IsOutgoingEmpty()) {
+        std::make_unique<Error>("ConnectionStore::UpdateBuffers",
+                                "Left over POLLOUT flag");
+      } else if (error = c->Send(); error.has_value()) {
         return error;
       }
 
-      if (res.IsClosed()) {
+      if (!c->IsOpen()) {
         output.closed.push_back((size_t)pfd.fd);
-      } else if (connections[i]->IsEmpty()) {
+      } else if (c->IsOutgoingEmpty()) {
         pfd.events &= ~POLLOUT;
         if (!(pfd.events & POLLIN)) {
           emptyLingeringBuffers.push_back(pfd.fd);
@@ -226,6 +221,8 @@ MaybeError ConnectionStore::UpdateBuffers(UpdateData<int> &output) {
     }
   }
 
+  emptyLingeringBuffers.insert(emptyLingeringBuffers.end(),
+                               output.closed.begin(), output.closed.end());
   for (int fd : emptyLingeringBuffers) {
     if (error = Pop(fd); error.has_value()) {
       return error;

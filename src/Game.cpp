@@ -30,6 +30,9 @@ MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
 
   // Trick finished.
   result = TrickResult();
+  std::copy_n(currentTrick.value().cards.begin(), 3,
+              result.value().cards.begin());
+  result.value().cards.back() = card;
   result.value().points = trickJudge(currentTrick.value());
   if (MaybeError error = GetTaker(result.value().taker); error.has_value()) {
     return error;

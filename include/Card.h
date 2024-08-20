@@ -30,6 +30,7 @@ class Card {
     kSpade,
   };
   
+  Card();
   Card(Value value, Color color);
   
   [[nodiscard]] static std::optional<Value> ParseValue(std::string value);
@@ -43,8 +44,8 @@ class Card {
   friend std::ostream& operator<<(std::ostream &os, const Card &c);
 
  private:
-  Value value;
-  Color color;
+  Value value = Value::kA;
+  Color color = Color::kSpade;
 };
 
 template <>

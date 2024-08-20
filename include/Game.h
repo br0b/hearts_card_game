@@ -19,6 +19,7 @@ class Game {
   };
 
   struct TrickResult {
+    std::array<Card, 4> cards;
     Seat taker;
     int points;
   };

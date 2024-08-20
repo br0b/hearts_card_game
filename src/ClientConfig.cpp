@@ -1,5 +1,6 @@
 #include "ClientConfig.h"
 #include "ConnectionProtocol.h"
+#include "MaybeError.h"
 #include "Utilities.h"
 
 ClientConfig::ClientConfig(std::string host, in_port_t port, Seat seat)
@@ -36,7 +37,10 @@ ClientConfig::FromMainArgs(int argc, char *argv[]) {
       case 'S':
       case 'W':
         seat = Seat();
-        (void)seat->Parse(std::to_string(opt));
+        if (MaybeError error = seat->Parse(std::string{char(opt)});
+            error.has_value()) {
+          return error;
+        }
         break;
       case 'a':
         isAutomatic = true;
@@ -52,6 +56,11 @@ ClientConfig::FromMainArgs(int argc, char *argv[]) {
     return Error::ArgOmitted("ClientConfig::FromMainArgs", "port");
   } else if (!seat.has_value()) {
     return Error::ArgOmitted("ClientConfig::FromMainArgs", "seat");
+  }
+
+  if (optind < argc) {
+    return std::make_unique<Error>("ClientConfig::FromMainArgs",
+                                   "Unnecesarry non-option arguments");
   }
 
   auto config = std::make_unique<ClientConfig>(host.value(), port.value(),

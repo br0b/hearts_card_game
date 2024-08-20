@@ -54,10 +54,10 @@ class Server {
     [[nodiscard]] Seat GetSeat() const;
 
    private:
-    int score;
-    int total;
+    int score = 0;
+    int total = 0;
     // Might not be connected at the moment.
-    std::optional<int> fd;
+    std::optional<int> fd{};
     const Seat seat;
   };
 
@@ -94,6 +94,8 @@ class Server {
   // Calls Game::Deal and sends deal messages to all players.
   [[nodiscard]] MaybeError NewDeal();
 
+  // Send trick number trickNumber to player seating in seat.
+  [[nodiscard]] MaybeError SendTaken(TrickNumber trickNumber, Seat seat);
   // Send current trick to the active player and set their response deadline.
   [[nodiscard]] MaybeError SendTrick();
 
@@ -112,12 +114,13 @@ class Server {
   // Map fds to an index to deadlines.
   std::unordered_map<int, size_t> candidateMap;
   std::array<Player, 4> players{{{Seat::Value::kN}, {Seat::Value::kE},
-                                 {Seat::Value::kS}, {Seat::Value::kE}}};
+                                 {Seat::Value::kS}, {Seat::Value::kW}}};
   std::unordered_map<int, Seat> playerMap;
   ConnectionStore::UpdateData<int> updateData;
   // Received
   std::vector<ConnectionStore::Message<Seat>> playerMessages;
   Deadline trickDeadline;
+  bool debugMode = false;
 };
 
 #endif  // SERVER_H

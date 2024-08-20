@@ -51,6 +51,6 @@ MaybeError MessageDeal::SetAfterMatch(std::smatch match) {
 }
 
 std::string MessageDeal::GetPattern() const {
-  return "^DEAL(([1-7])([NESW])((?:(?:10|[2-9]|[JQKA])[CDHS]){13})$";
+  return "^DEAL([1-7])([NESW])((?:(?:10|[2-9]|[JQKA])[CDHS]){13})$";
 }
 

@@ -39,9 +39,10 @@ MaybeError Utilities::CreateAddress(std::string host, in_port_t port,
 
 MaybeError Utilities::GetBoundSocket(int ai_family, Socket &s) {
   struct sockaddr_storage addr_storage;
-  in_port_t netPort = htons(s.port.value_or(0));
+  in_port_t port = htons(s.port.value_or(0));
+  int fd;
 
-  if (s.fd = socket(ai_family, SOCK_STREAM, 0); s.fd < 0) {
+  if (fd = socket(ai_family, SOCK_STREAM, 0); fd < 0) {
     return Error::FromErrno("socket");
   }
 
@@ -51,28 +52,31 @@ MaybeError Utilities::GetBoundSocket(int ai_family, Socket &s) {
     struct sockaddr_in *addr = (struct sockaddr_in *)&addr_storage;
     addr->sin_family = AF_INET;
     addr->sin_addr.s_addr = INADDR_ANY;
-    addr->sin_port = netPort;
+    addr->sin_port = port;
   } else {
     struct sockaddr_in6 *addr = (struct sockaddr_in6 *)&addr_storage;
     addr->sin6_family = AF_INET6;
     addr->sin6_addr = in6addr_any;
-    addr->sin6_port = netPort;
+    addr->sin6_port = port;
   }
 
-  if (bind(*s.fd, (struct sockaddr *)&addr_storage, sizeof(addr_storage)) < 0) {
+  if (bind(fd, (struct sockaddr *)&addr_storage,
+           sizeof(addr_storage)) < 0) {
     return Error::FromErrno("bind");
   }
 
-  if (MaybeError error = GetAddressFromFd(*s.fd, addr_storage);
+  if (MaybeError error = GetAddressFromFd(fd, addr_storage);
       error.has_value()) {
     return error;
   }
 
-  if (MaybeError error = GetPortFromAddress(addr_storage, *s.port);
+  if (MaybeError error = GetPortFromAddress(addr_storage, port);
       error.has_value()) {
     return error;
   }
 
+  s.fd = fd;
+  s.port = port;
   return std::nullopt;
 }
 

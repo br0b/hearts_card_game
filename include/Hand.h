@@ -10,10 +10,10 @@ class Hand {
   // Get all cards from string.
   void Parse(std::string str);
 
-  template <typename Iterator>
-  void Set(Iterator begin, Iterator end) {
+  template <typename TIterable>
+  void Set(TIterable cards_) {
     cards.clear();
-    cards.insert(cards.end(), begin, end);
+    cards.insert(cards.end(), cards_.begin(), cards_.end());
   }
 
   [[nodiscard]] const std::vector<Card>& Get() const;

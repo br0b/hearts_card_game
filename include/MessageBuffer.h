@@ -1,29 +1,15 @@
 #ifndef MESSAGE_BUFFER_H
 #define MESSAGE_BUFFER_H
 
-#include <string>
+#include <array>
 #include <deque>
-#include <vector>
+#include <string>
 
 #include "MaybeError.h"
 
 class MessageBuffer {
  public:
-  class Result {
-   public:
-    void SetOpen(std::optional<std::string> message_);
-    void SetClosed();
-
-    // Assumes isClosed == false.
-    MaybeError GetMessage(std::optional<std::string> &message_) const;
-    bool IsClosed() const;
-
-   private:
-    std::optional<std::string> message;
-    bool isClosed;
-  };
-
-  MessageBuffer(std::vector<char> &buf);
+  MessageBuffer(std::array<char, 4096> &buf);
 
   // Modify
 
@@ -32,20 +18,23 @@ class MessageBuffer {
   void SetSeperator(std::string separator_);
 
   // Reading from a closed socket is allowed only once.
-  [[nodiscard]] MaybeError Receive(Result &res);
+  [[nodiscard]] MaybeError Receive();
+  std::optional<std::string> PopMessage();
   // Writing to a closed socket is allowed only once.
-  [[nodiscard]] MaybeError Send(Result &res);
+  [[nodiscard]] MaybeError Send();
   void PushMessage(const std::string &msg);
 
   void ClearIncoming();
 
+  void DisableReporting();
+
   // Query
 
-  [[nodiscard]] bool IsEmpty() const;
+  [[nodiscard]] bool IsOpen() const;
+  [[nodiscard]] bool IsOutgoingEmpty() const;
   [[nodiscard]] const std::optional<std::string> &GetRemote() const;
 
  private:
-  [[nodiscard]] std::optional<std::string> PopMessage();
 
   // Argument msg ending with a seperator.
   void ReportReceived(const std::string &msg);
@@ -63,12 +52,12 @@ class MessageBuffer {
   std::optional<std::string> localAddress;
   std::optional<std::string> remoteAddress;
   // Always ends with a null byte to make separator search easier.
-  std::deque<char> incoming;
+  std::deque<char> incoming{'\0'};
   std::deque<char> outgoing;
-  std::vector<char> &buffer;
+  std::array<char, 4096> &buffer;
   std::string separator = "\r\n";
-  bool isOpen;
-  bool isReportingOn;
+  bool isOpen = false;
+  bool isReportingOn = true;
 };
 
 #endif  // MESSAGE_BUFFER_H

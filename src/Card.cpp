@@ -1,5 +1,7 @@
 #include "Card.h"
 
+Card::Card() {}
+
 Card::Card(Value value, Color color) : value(value), color(color) {}
 
 std::optional<Card::Value> Card::ParseValue(std::string value) {

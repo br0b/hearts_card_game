@@ -29,7 +29,7 @@ class ClientConfig {
   const in_port_t port;
   std::optional<ConnectionProtocol> protocol;
   const Seat seat;
-  bool isAutomatic;
+  bool isAutomatic = false;
 };
 
 #endif //CLIENTCONFIG_H
