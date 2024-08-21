@@ -13,6 +13,7 @@ class MessageBusy final : public Message {
 
   [[nodiscard]] const std::vector<Seat>& GetSeats() const;
   [[nodiscard]] std::string Str() const override;
+  [[nodiscard]] std::optional<std::string> UserStr() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;

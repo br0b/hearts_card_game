@@ -1,14 +1,14 @@
-#ifndef MESSAGEIAM_H
-#define MESSAGEIAM_H
+#ifndef MESSAGE_PLAY_TRICK_H
+#define MESSAGE_PLAY_TRICK_H
 
+#include "Card.h"
 #include "Message.h"
-#include "Seat.h"
 
-class MessageIam final : public Message {
+class MessagePlayTrick final : public Message {
  public:
-  void SetSeat(Seat seat_);
+  void SetCard(Card card_);
 
-  [[nodiscard]] Seat GetSeat() const;
+  Card GetCard() const;
   [[nodiscard]] std::string Str() const override;
   [[nodiscard]] std::optional<std::string> UserStr() const override;
 
@@ -16,7 +16,8 @@ class MessageIam final : public Message {
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;
   [[nodiscard]] std::string GetPattern() const override;
 
-  Seat seat;
+  Card card;
 };
 
-#endif  // MESSAGEIAM_H
+#endif  // MESSAGE_PLAY_TRICK_H
+

@@ -2,6 +2,7 @@
 
 #include "MessageBusy.h"
 #include "MaybeError.h"
+#include "Utilities.h"
 
 void MessageBusy::SetSeats(std::vector<Seat> seats_) {
   seats = std::move(seats_);
@@ -19,6 +20,14 @@ std::string MessageBusy::Str() const {
     oss << s;
   }
 
+  return oss.str();
+}
+
+std::optional<std::string> MessageBusy::UserStr() const {
+  std::ostringstream oss;
+  oss << "Place busy, list of busy places received: ";
+  Utilities::StrList(oss, seats.begin(), seats.end());
+  oss << '.';
   return oss.str();
 }
 

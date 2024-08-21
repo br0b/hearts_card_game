@@ -13,6 +13,7 @@ class MessageTrick final : public Message {
   [[nodiscard]] TrickNumber GetTrickNumber() const;
   [[nodiscard]] const Hand &GetCards() const;
   [[nodiscard]] std::string Str() const override;
+  [[nodiscard]] std::optional<std::string> UserStr() const override;
 
  private:
   MaybeError SetAfterMatch(std::smatch match) override;

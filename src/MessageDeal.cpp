@@ -3,6 +3,7 @@
 #include "MessageDeal.h"
 #include "DealType.h"
 #include "MaybeError.h"
+#include "Utilities.h"
 
 void MessageDeal::SetType(DealType type_) {
   type = type_;
@@ -31,6 +32,15 @@ const Hand& MessageDeal::GetHand() const {
 std::string MessageDeal::Str() const {
   std::ostringstream oss;
   oss << "DEAL" << type << first << hand;
+  return oss.str();
+}
+
+std::optional<std::string> MessageDeal::UserStr() const {
+  std::ostringstream oss;
+  oss << "New deal " << type << ": starting place "
+      << first << ", your cards: ";
+  Utilities::StrList(oss, hand.Get().begin(), hand.Get().end());
+  oss << '.';
   return oss.str();
 }
 

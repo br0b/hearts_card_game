@@ -10,9 +10,11 @@
 
 #include "Card.h"
 #include "ConnectionProtocol.h"
+#include "Message.h"
 #include "MessageBuffer.h"
 #include "MaybeError.h"
 #include "Seat.h"
+#include "TrickNumber.h"
 
 class Client {
  public:
@@ -29,7 +31,12 @@ class Client {
   [[nodiscard]] MaybeError Run(bool isAutomatic);
 
  private:
+  void PrintCards() const;
+  void PrintUserStr(const Message *msg) const;
+  void PrintHelp() const;
   [[nodiscard]] MaybeError HandleServerMessage(std::string msg);
+  // Doesn't modify player cards.
+  [[nodiscard]] MaybeError PlayTrick(Card card);
 
   // The return address family will be used with getaddrinfo.
   [[nodiscard]] static int GetAddressFamily(
@@ -47,8 +54,8 @@ class Client {
   std::array<std::unordered_set<Card>, 4> cards;
   std::vector<Card> taken;
   int nPointMessagesReceived = 0;
-  int nextTrickNumber = 1;
-  bool isPlayerInputNeeded = false;
+  std::optional<TrickNumber> nextTrickNumber;
+  bool isUserTrickNeeded = false;
   std::optional<Card> playerInput;
   static constexpr size_t kServerId = 0;
   static constexpr size_t kUserId = 1;

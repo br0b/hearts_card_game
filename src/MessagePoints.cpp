@@ -1,3 +1,6 @@
+#include <iostream>
+#include <sstream>
+
 #include "MessagePoints.h"
 #include "MaybeError.h"
 #include "Seat.h"
@@ -30,10 +33,21 @@ std::string MessagePoints::Str() const {
   return oss.str();
 }
 
+std::optional<std::string> MessagePoints::UserStr() const {
+  Seat seat;
+  std::ostringstream oss;
+  oss << "The "<< ((header == "TOTAL") ? "total " : "") << "scores are:";
+  for (int p : points) {
+    oss << '\n' << seat << " | " << p;
+    seat.CycleClockwise();
+  }
+  return oss.str();
+}
+
 MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
   Seat seat;
   std::optional<int> p;
-  std::array<bool, 4> players;
+  std::array<bool, 4> players{false, false, false, false};
   MaybeError error = Error::InvalidArgs("MessagePoints::SetAfterMatch");
   std::string str = match[1].str();
   std::regex pattern("([NESW])(0|[1-9][0-9]*)");
@@ -41,15 +55,15 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
   for (auto it = std::sregex_iterator(str.begin(), str.end(), pattern);
        it != std::sregex_iterator();
        it++) {
-    if (MaybeError err = seat.Parse((*it)[1]); error.has_value()) {
-      return err;
+    if (MaybeError tmp = seat.Parse((*it)[1]); tmp.has_value()) {
+      return tmp;
     }
 
     // Check if twice the same player.
-    if (players[static_cast<size_t>(seat.Get())]) {
+    if (players.at(seat.GetIndex())) {
       return error;
     } else {
-      players[static_cast<size_t>(seat.Get())] = true;
+      players.at(seat.GetIndex()) = true;
     }
 
     if (p = Utilities::ParseNumber((*it)[2], 0, INT_MAX);
@@ -57,7 +71,7 @@ MaybeError MessagePoints::SetAfterMatch(std::smatch match) {
       return error;
     }
 
-    points[seat.GetIndex()] = p.value();
+    points.at(seat.GetIndex()) = p.value();
   }
 
   return std::nullopt;

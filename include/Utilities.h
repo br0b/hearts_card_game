@@ -3,6 +3,7 @@
 
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sstream>
 #include <string>
 
 #include "MaybeError.h"
@@ -67,6 +68,20 @@ public:
     }
 
     return ret;
+  }
+
+  template <typename Iterator>
+  static void StrList(std::ostringstream &oss, Iterator begin, Iterator end) {
+    if (begin == end) {
+      return;
+    }
+    
+    auto it = begin;
+    oss << *it;
+    it++;
+    for (; it != end; it++) {
+      oss << ", " << *it;
+    }
   }
 
 private:

@@ -4,6 +4,7 @@
 #include "MaybeError.h"
 #include "MessageTaken.h"
 #include "TrickNumber.h"
+#include "Utilities.h"
 
 
 void MessageTaken::SetTrickNumber(TrickNumber trickNumber_) {
@@ -33,6 +34,15 @@ Seat MessageTaken::GetTaker() const {
 std::string MessageTaken::Str() const {
   std::ostringstream oss;
   oss << "TAKEN" << trickNumber << cards << taker;
+  return oss.str();
+}
+
+std::optional<std::string> MessageTaken::UserStr() const {
+  std::ostringstream oss;
+  oss << "A trick " << trickNumber << " is taken by " << taker
+      << ", cards ";
+  Utilities::StrList(oss, cards.Get().begin(), cards.Get().end());
+  oss << '.';
   return oss.str();
 }
 

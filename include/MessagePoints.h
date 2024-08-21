@@ -15,6 +15,7 @@ class MessagePoints final : public Message {
 
   [[nodiscard]] const std::array<int, 4> &GetPoints() const;
   [[nodiscard]] std::string Str() const override;
+  [[nodiscard]] std::optional<std::string> UserStr() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;

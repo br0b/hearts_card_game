@@ -1,11 +1,15 @@
 #include "Message.h"
+#include <memory>
 #include "MessageBusy.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
+#include "MessagePlayTrick.h"
 #include "MessagePoints.h"
 #include "MessageTaken.h"
 #include "MessageTrick.h"
 #include "MessageWrong.h"
+
+Message::~Message() {}
 
 std::unique_ptr<Message> Message::Deserialize(std::string str) {
   std::unique_ptr<Message> msg;
@@ -26,6 +30,8 @@ std::unique_ptr<Message> Message::Deserialize(std::string str) {
     msg = std::make_unique<MessagePoints>("SCORE");
   } else if (str.compare(0, 5, "WRONG") == 0) {
     msg = std::make_unique<MessageWrong>();
+  } else if (str.compare(0, 1, "!") == 0) {
+    msg = std::make_unique<MessagePlayTrick>();
   }
 
   if (msg.get() == nullptr || msg->Parse(str).has_value()) {
@@ -38,6 +44,16 @@ std::unique_ptr<Message> Message::Deserialize(std::string str) {
 std::ostream &operator<<(std::ostream &os, const Message &msg) {
   os << msg.Str();
   return os;
+}
+
+MaybeError Message::GetMaybeUserStr(std::string &userStr) {
+  std::optional<std::string> tmp = UserStr();
+  if (!tmp.has_value()) {
+    return std::make_unique<Error>("Message::GetMaybeUserStr",
+                                   "No user string.");
+  }
+  userStr = tmp.value();
+  return std::nullopt;
 }
 
 MaybeError Message::Parse(std::string str) {

@@ -18,7 +18,9 @@
 
 ConnectionStore::~ConnectionStore() {
   for (const pollfd &pfd : pollfds) {
-    close(pfd.fd);
+    if (pfd.fd != -1) {
+      close(pfd.fd);
+    }
   }
 }
 
@@ -62,7 +64,7 @@ MaybeError ConnectionStore::Update(
     return error;
   }
   
-  int pollRes = poll(&pollfds[0], pollfds.size(), pollTimeout);
+  int pollRes = poll(pollfds.data(), pollfds.size(), pollTimeout);
 
   if (pollRes < 0) {
     return Error::FromErrno("ConnectionStore::Update");
@@ -126,7 +128,7 @@ bool ConnectionStore::IsEmpty() const {
   return connections.empty();
 }
 
-MaybeError ConnectionStore::PrePoll(UpdateData<int> &input) {
+MaybeError ConnectionStore::PrePoll(const UpdateData<int> &input) {
   MaybeError error = std::nullopt;
   UpdateData<size_t> converted;
 
@@ -168,7 +170,7 @@ MaybeError ConnectionStore::PushBuffers(
   if (!connections.at(id)->IsOutgoingEmpty()) {
     return std::nullopt;
   }
-  return Pop(pollfds[id + 1].fd);
+  return Pop(fd);
 }
 
 // TODO: Move nested code to UpdateIncoming and UpdateOutgoing.
@@ -264,17 +266,6 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
     return error;
   }
 
-  if (debugMode) {
-    std::optional<std::string> addr = connections.at(fdMap[fd])->GetRemote();
-    if (!addr.has_value()) {
-      return std::make_unique<Error>("ConnectionStore::UpdateListening",
-                                     "No remote address.");
-      return error;
-    }
-    std::ostringstream oss;
-    oss << "New connection (fd: "<< fd << ", addr: " << addr.value() << ')';
-  }
-
   opened = fd;
   return std::nullopt;
 }
@@ -323,7 +314,7 @@ MaybeError ConnectionStore::GetId(int fd, size_t &id) const {
   return std::nullopt;
 }
 
-MaybeError ConnectionStore::Convert(UpdateData<int> &src,
+MaybeError ConnectionStore::Convert(const UpdateData<int> &src,
                                     UpdateData<size_t> &dst) const {
   MaybeError error = std::nullopt;
   dst = {{}, std::nullopt, {}};
@@ -345,7 +336,6 @@ MaybeError ConnectionStore::Convert(UpdateData<int> &src,
     }
   }
 
-  src = {{}, std::nullopt, {}};
   return std::nullopt;
 }
 

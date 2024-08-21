@@ -16,6 +16,7 @@ class MessageDeal final : public Message {
   Seat GetFirst() const;
   const Hand& GetHand() const;
   [[nodiscard]] std::string Str() const override;
+  [[nodiscard]] std::optional<std::string> UserStr() const override;
 
  private:
   [[nodiscard]] MaybeError SetAfterMatch(std::smatch match) override;

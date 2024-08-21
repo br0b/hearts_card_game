@@ -10,6 +10,7 @@ class MessageWrong final : public Message {
 
   [[nodiscard]] TrickNumber GetTrickNumber() const;
   [[nodiscard]] std::string Str() const override;
+  [[nodiscard]] std::optional<std::string> UserStr() const override;
 
  private:
   MaybeError SetAfterMatch(std::smatch match) override;

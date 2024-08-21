@@ -3,16 +3,19 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <memory>
+#include <sstream>
 
 #include "Client.h"
 #include "ConnectionProtocol.h"
+#include "Game.h"
 #include "MaybeError.h"
-#include "Message.h"
 #include "MessageBuffer.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
+#include "MessagePlayTrick.h"
 #include "MessageTaken.h"
 #include "MessageTrick.h"
+#include "TrickNumber.h"
 #include "Utilities.h"
 
 Client::Client(Seat seat) : seat(seat) {}
@@ -56,7 +59,9 @@ MaybeError Client::Run(bool isAutomatic) {
   if (!isAutomatic) {
     pollfds.at(kUserId) = {STDIN_FILENO, POLLIN, 0};
     server.DisableReporting();
+    user.DisableReporting();
     user.SetPipe(STDIN_FILENO);
+    user.SetSeperator("\n");
   }
   
   while (true) {
@@ -69,24 +74,66 @@ MaybeError Client::Run(bool isAutomatic) {
                                      "Poll returned with no revents");
     }
 
+    if (pollfds.at(kUserId).revents & POLLIN) {
+      if (error = user.Receive(); error.has_value()) {
+        return error;
+      }
+
+      std::optional<std::string> msg = user.PopMessage();
+      if (msg.has_value()) {
+        if (msg.value() == "cards") {
+          PrintCards();
+        } else if (msg.value() == "tricks") {
+          std::cout << "Taken cards:\n";
+          for (size_t i = 0; i < taken.size(); i += 4) {
+            std::ostringstream oss;
+            std::array<Card, 4> trick;
+            std::copy_n(taken.begin() + i, 4, trick.begin());
+            Utilities::StrList(oss, trick.begin(), trick.end());
+            std::cout << oss.str() << '\n';
+          }
+        } else if (msg.value().compare(0, 1, "!") == 0) {
+          auto m = Message::Deserialize(msg.value());
+          if (m != nullptr) {
+            try {
+              const MessagePlayTrick &msgPlay
+                = dynamic_cast<MessagePlayTrick &>(*m);
+              if (!isUserTrickNeeded) {
+                std::cout << "The server hasn't sent a trick message yet.\n";
+              } else {
+                if (error = PlayTrick(msgPlay.GetCard()); error.has_value()) {
+                  return error;
+                }
+                isUserTrickNeeded = false;
+              }
+            } catch (std::bad_cast &e) {
+              PrintHelp();
+            }
+          } else {
+            PrintHelp();
+          }
+        } else {
+          PrintHelp();
+        }
+      }
+    }
+
     if (pollfds.at(kServerId).revents & POLLIN) {
       if (error = server.Receive(); error.has_value()) {
         return error;
       }
-    }
 
-    if (!server.IsOpen()) {
-      if (nPointMessagesReceived == 2) {
-        close(pollfds.at(kServerId).fd);
-        return std::nullopt;
-      } else {
-        return std::make_unique<Error>("Client::Run",
-                                       "Premature disconnection");
+      if (!server.IsOpen()) {
+        if (nPointMessagesReceived == 2) {
+          close(pollfds.at(kServerId).fd);
+          return std::nullopt;
+        } else {
+          return std::make_unique<Error>("Client::Run",
+                                         "Premature disconnection");
+        }
       }
-    }
 
-    do {
-      if ((msg = server.PopMessage()).has_value()) {
+      while ((msg = server.PopMessage()).has_value()) {
         if (error = HandleServerMessage(msg.value()); error.has_value()) {
           return error;
         }
@@ -95,7 +142,7 @@ MaybeError Client::Run(bool isAutomatic) {
           return std::nullopt;
         }
       }
-    } while (msg.has_value());
+    }
 
     if (pollfds.at(kServerId).revents & POLLOUT) {
       if (error = server.Send(); error.has_value()) {
@@ -110,9 +157,39 @@ MaybeError Client::Run(bool isAutomatic) {
   return std::nullopt;
 }
 
+void Client::PrintCards() const {
+  std::vector<Card> tmp;
+  std::ostringstream oss;
+  oss << "Available: ";
+  for (const auto &colorCards : cards) {
+    tmp.insert(tmp.end(), colorCards.begin(), colorCards.end());
+  }
+  Utilities::StrList(oss, tmp.begin(), tmp.end());
+  std::cout << oss.str() << '\n';
+}
+
+void Client::PrintUserStr(const Message *msg) const {
+  if (msg == nullptr) {
+    return;
+  }
+
+  auto str = msg->UserStr();
+  if (str.has_value()) {
+    std::cout << str.value() << '\n';
+  }
+}
+
+void Client::PrintHelp() const {
+  std::cout << "!<card> - play a card, for example \"!AS\""
+            << "cards – show cards on hand\n"
+            << "tricks - show taken cards\n";
+}
+
 MaybeError Client::HandleServerMessage(std::string msg) {
   MaybeError error;
   std::unique_ptr<Message> m;
+  std::string userStr;
+  bool isMsgTrick = false;
 
   if ((m = Message::Deserialize(msg)) == nullptr) {
     return std::nullopt;
@@ -130,7 +207,7 @@ MaybeError Client::HandleServerMessage(std::string msg) {
       }
 
       nPointMessagesReceived = 0;
-      nextTrickNumber = 1;
+      nextTrickNumber = TrickNumber();
     } else if (msg.compare(0, 5, "SCORE") == 0
                || msg.compare(0, 5, "TOTAL") == 0) {
       nPointMessagesReceived++;
@@ -140,12 +217,25 @@ MaybeError Client::HandleServerMessage(std::string msg) {
         taken.insert(taken.end(), msgTaken.GetCards().Get().begin(),
                      msgTaken.GetCards().Get().end());
       }
-      nextTrickNumber++;
+      for (Card card : msgTaken.GetCards().Get()) {
+        cards.at(card.GetColorIndex()).erase(card);
+      }
+      int trickNum = msgTaken.GetTrickNumber().Get();
+      if (trickNum == 13) {
+        nextTrickNumber.reset();
+      } else {
+        nextTrickNumber = TrickNumber();
+        if (error = nextTrickNumber.value().Set(trickNum + 1);
+            error.has_value()) {
+          return error;
+        }
+      }
     } else if (msg.compare(0, 5, "TRICK") == 0) {
       const MessageTrick &msgTrick = dynamic_cast<MessageTrick &>(*m);
-      if (nextTrickNumber == msgTrick.GetTrickNumber().Get()) {
-        std::optional<Card> choice;
+      isMsgTrick = true;
+      if (nextTrickNumber == msgTrick.GetTrickNumber()) {
         if (pollfds.at(kUserId).fd == -1) {
+          std::optional<Card> choice;
           int colorBeginIndex = 0;
           if (!msgTrick.GetCards().Get().empty()) {
             colorBeginIndex
@@ -157,19 +247,15 @@ MaybeError Client::HandleServerMessage(std::string msg) {
               choice = *cards.at(index).begin();
             }
           }
+          if (choice.has_value()) {
+            if (error = PlayTrick(choice.value()); error.has_value()) {
+              return error;
+            }
+          }
         } else {
-          std::cerr << "User CLI not implemented.\n";
-        }
-
-        if (choice.has_value()) {
-          cards.at(choice.value().GetColorIndex()).erase(choice.value());
-          Hand hand;
-          hand.Set(std::array<Card, 1>{choice.value()});
-          MessageTrick reply;
-          reply.SetTrickNumber(msgTrick.GetTrickNumber());
-          reply.SetCards(hand);
-          server.PushMessage(reply.Str());
-          pollfds.at(kServerId).events |= POLLOUT;
+          isUserTrickNeeded = true;
+          PrintUserStr(m.get());
+          PrintCards();
         }
       }
     }
@@ -177,6 +263,26 @@ MaybeError Client::HandleServerMessage(std::string msg) {
     return std::nullopt;
   }
 
+  if (pollfds.at(kUserId).fd != -1 && !isMsgTrick) {
+    PrintUserStr(m.get());
+  }
+
+  return std::nullopt;
+}
+
+MaybeError Client::PlayTrick(Card card) {
+  if (!nextTrickNumber.has_value()) {
+    return Game::NotStarted("Client::PlayTrick");
+  }
+
+  std::array<Card, 1> tmp = {card};
+  Hand hand;
+  hand.Set(tmp);
+  MessageTrick msgTrick;
+  msgTrick.SetTrickNumber(nextTrickNumber.value());
+  msgTrick.SetCards(hand);
+  server.PushMessage(msgTrick.Str());
+  pollfds.at(kServerId).events |= POLLOUT;
   return std::nullopt;
 }
 

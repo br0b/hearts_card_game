@@ -10,8 +10,8 @@ class Hand {
   // Get all cards from string.
   void Parse(std::string str);
 
-  template <typename TIterable>
-  void Set(TIterable cards_) {
+  template <typename T>
+  void Set(T cards_) {
     cards.clear();
     cards.insert(cards.end(), cards_.begin(), cards_.end());
   }

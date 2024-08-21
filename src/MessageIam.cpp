@@ -16,6 +16,10 @@ std::string MessageIam::Str() const {
   return oss.str();
 }
 
+std::optional<std::string> MessageIam::UserStr() const {
+  return std::nullopt;
+}
+
 MaybeError MessageIam::SetAfterMatch(std::smatch match) {
   return seat.Parse(match[1]);
 }

@@ -3,6 +3,7 @@
 #include "MaybeError.h"
 #include "MessageTrick.h"
 #include "TrickNumber.h"
+#include "Utilities.h"
 
 void MessageTrick::SetTrickNumber(TrickNumber trickNumber_) {
   trickNumber = trickNumber_;
@@ -23,6 +24,13 @@ const Hand &MessageTrick::GetCards() const {
 std::string MessageTrick::Str() const {
   std::ostringstream oss;
   oss << "TRICK" << trickNumber << cards;
+  return oss.str();
+}
+
+std::optional<std::string> MessageTrick::UserStr() const {
+  std::ostringstream oss;
+  oss << "Trick: (" << trickNumber << ") ";
+  Utilities::StrList(oss, cards.Get().begin(), cards.Get().end());
   return oss.str();
 }
 

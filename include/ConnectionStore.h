@@ -46,7 +46,7 @@ class ConnectionStore {
   [[nodiscard]] bool IsEmpty() const;
 
 private:
-  [[nodiscard]] MaybeError PrePoll(UpdateData<int> &input);
+  [[nodiscard]] MaybeError PrePoll(const UpdateData<int> &input);
   [[nodiscard]] MaybeError PushBuffers(const std::vector<Message<size_t>> &pending);
   [[nodiscard]] MaybeError StopReceiving(int fd);
   [[nodiscard]] MaybeError UpdateBuffers(UpdateData<int> &output);
@@ -70,7 +70,7 @@ private:
 
   [[nodiscard]] MaybeError GetId(int fd, size_t &id) const;
   // Argument src is invalidaded.
-  [[nodiscard]] MaybeError Convert(UpdateData<int> &src,
+  [[nodiscard]] MaybeError Convert(const UpdateData<int> &src,
                                    UpdateData<size_t> &dst) const;
 
   void ReportUpdateData(const UpdateData<int> &data) const;
