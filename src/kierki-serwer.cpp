@@ -14,7 +14,6 @@ int main(int argc, char *argv[]) {
   std::unique_ptr<ServerConfig> serverConfig;
   GameConfig gameConfig;
   Server server;
-  // server.EnableDebug();
 
   auto tmp = ServerConfig::FromMainArgs(argc, argv);
   if (std::holds_alternative<MaybeError>(tmp)) {

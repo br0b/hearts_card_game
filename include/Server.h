@@ -116,9 +116,9 @@ class Server {
   std::array<Player, 4> players{{{Seat::Value::kN}, {Seat::Value::kE},
                                  {Seat::Value::kS}, {Seat::Value::kW}}};
   std::unordered_map<int, Seat> playerMap;
-  ConnectionStore::UpdateData<int> updateData;
+  ConnectionStore::UpdateData updateData;
   // Received
-  std::vector<ConnectionStore::Message<Seat>> playerMessages;
+  std::vector<ConnectionStore::Message> playerMessages;
   Deadline trickDeadline;
   bool debugMode = false;
 };

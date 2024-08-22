@@ -48,8 +48,6 @@ public:
 
   [[nodiscard]] static MaybeError GetPortFromFd(int fd, in_port_t &port);
 
-  [[nodiscard]] static MaybeError SetNonBlocking(int fd);
-
   // Parse string to number of type T in range [l;r].
   // Return std::nullopt otherwise.
   template <typename T>

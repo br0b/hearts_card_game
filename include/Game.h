@@ -41,7 +41,7 @@ class Game {
 
   [[nodiscard]] const std::optional<Trick> &GetCurrentTrick() const;
 
-  [[nodiscard]] static std::unique_ptr<Error> NotStarted(std::string funName);
+  [[nodiscard]] static std::unique_ptr<Error> ErrorNotStarted(std::string funName);
 
  private:
   // Assumes currentTurn is equal to the first player of the trick.

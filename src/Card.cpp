@@ -16,45 +16,32 @@ std::optional<Card::Value> Card::ParseValue(std::string value) {
   }
 
   switch (value[0]) {
-    case '2': {
+    case '2':
       return Card::Value::k2;
-    }
-    case '3': {
+    case '3':
       return Card::Value::k3;
-    }
-    case '4': {
+    case '4':
       return Card::Value::k4;
-    }
-    case '5': {
+    case '5':
       return Card::Value::k5;
-    }
-    case '6': {
+    case '6':
       return Card::Value::k6;
-    }
-    case '7': {
+    case '7':
       return Card::Value::k7;
-    }
-    case '8': {
+    case '8':
       return Card::Value::k8;
-    }
-    case '9': {
+    case '9':
       return Card::Value::k9;
-    }
-    case 'J': {
+    case 'J':
       return Card::Value::kJ;
-    }
-    case 'Q': {
+    case 'Q':
       return Card::Value::kQ;
-    }
-    case 'K': {
+    case 'K':
       return Card::Value::kK;
-    }
-    case 'A': {
+    case 'A':
       return Card::Value::kA;
-    }
-    default: {
+    default:
       return std::nullopt;
-    }
   };
 }
 
@@ -64,21 +51,16 @@ std::optional<Card::Color> Card::ParseColor(std::string color) {
   }
 
   switch (color[0]) {
-    case 'C': {
+    case 'C':
       return Card::Color::kCub;
-    }
-    case 'D': {
+    case 'D':
       return Card::Color::kDiamond;
-    }
-    case 'H': {
+    case 'H':
       return Card::Color::kHeart;
-    }
-    case 'S': {
+    case 'S':
       return Card::Color::kSpade;
-    }
-    default: {
+    default:
       return std::nullopt;
-    }
   }
 }
 

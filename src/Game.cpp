@@ -9,7 +9,7 @@
 
 MaybeError Game::Play(Card card, std::optional<Game::TrickResult> &result) {
   if (!currentTrick.has_value()) {
-    return NotStarted("Game::Play");
+    return ErrorNotStarted("Game::Play");
   } else if (!hands[currentTrick.value().turn.GetIndex()][card.GetColorIndex()]
       .contains(card)) {
     return std::make_unique<Error>("Game::Play",
@@ -93,11 +93,11 @@ MaybeError Game::Deal(DealConfig &config) {
       break;
     }
     case DealType::Value::kSeventhAndLastTrickBad: {
-      trickJudge = KingOfHeartsBadJudge;
+      trickJudge = SeventhAndLastTrickBadJudge;
       break;
     }
     case DealType::Value::kRobber: {
-      trickJudge = KingOfHeartsBadJudge;
+      trickJudge = RobberJudge;
       break;
     }
   };
@@ -126,7 +126,7 @@ const std::optional<Game::Trick> &Game::GetCurrentTrick() const {
 
 MaybeError Game::GetTaker(Seat &taker) const {
   if (!currentTrick.has_value()) {
-    return NotStarted("Game::GetTaker");
+    return ErrorNotStarted("Game::GetTaker");
   }
 
   auto first = currentTrick.value().cards.begin();
@@ -210,12 +210,11 @@ int Game::RobberJudge(const Game::Trick &trick) {
     + HeartsBadJudge(trick)
     + QueensBadJudge(trick)
     + GentlemenBadJudge(trick)
-    + GentlemenBadJudge(trick)
     + KingOfHeartsBadJudge(trick)
     + SeventhAndLastTrickBadJudge(trick);
 }
 
-std::unique_ptr<Error> Game::NotStarted(std::string funName) {
+std::unique_ptr<Error> Game::ErrorNotStarted(std::string funName) {
   return std::make_unique<Error>(std::move(funName),
                                  "Game hasn't started yet.");
 }

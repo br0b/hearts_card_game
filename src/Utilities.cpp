@@ -201,14 +201,6 @@ MaybeError Utilities::GetPortFromFd(int fd, in_port_t &port) {
   return GetPortFromAddress(addr, port);
 }
 
-MaybeError Utilities::SetNonBlocking(int fd) {
-  if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
-    return Error::FromErrno("fcntl");
-  }
-
-  return std::nullopt;
-}
-
 MaybeError Utilities::GetIpFromAddress(
     const struct sockaddr_storage &address,
     std::string &ipStr) {
@@ -216,18 +208,15 @@ MaybeError Utilities::GetIpFromAddress(
   const void *addr = nullptr;
 
   switch (address.ss_family) {
-    case AF_INET: {
+    case AF_INET:
       addr = &reinterpret_cast<const struct sockaddr_in&>(address).sin_addr;
       break;
-    }
-    case AF_INET6: {
+    case AF_INET6:
       addr = &reinterpret_cast<const struct sockaddr_in6&>(address).sin6_addr;
       break;
-    }
-    default: {
+    default:
       return std::make_unique<Error>("GetIpFromAddress",
                                      "Unsupported protocol.");
-    }
   }
 
   if (inet_ntop(address.ss_family, addr, &cStr[0], cStr.size()) == NULL) {
@@ -242,18 +231,15 @@ MaybeError Utilities::GetPortFromAddress(
     const struct sockaddr_storage &address,
     uint16_t &port) {
   switch (address.ss_family) {
-    case AF_INET: {
+    case AF_INET:
       port = reinterpret_cast<const struct sockaddr_in&>(address).sin_port;
       break;
-    }
-    case AF_INET6: {
+    case AF_INET6:
       port = reinterpret_cast<const struct sockaddr_in6&>(address).sin6_port;
       break;
-    }
-    default: {
+    default:
       return std::make_unique<Error>("GetPortFromAddress",
                                      "Unsupported protocol.");
-    }
   }
 
   // Convert to host byte order.
@@ -261,5 +247,4 @@ MaybeError Utilities::GetPortFromAddress(
 
   return std::nullopt;
 }
-
 

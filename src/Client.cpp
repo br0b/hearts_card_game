@@ -1,9 +1,10 @@
-#include <sys/socket.h>
+#include <fcntl.h>
+#include <memory>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <unistd.h>
-#include <memory>
 #include <sstream>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "Client.h"
 #include "ConnectionProtocol.h"
@@ -44,6 +45,11 @@ MaybeError Client::Connect(
   }
 
   pollfds.front() = {s.fd.value(), POLLIN, 0};
+
+  if (fcntl(pollfds.at(kServerId).fd, F_SETFD, O_NONBLOCK) != 0) {
+    return Error::FromErrno("ConnectionStore::UpdateListening");
+  }
+  
   return server.SetSocket(s.fd.value());
 }
 
@@ -85,13 +91,14 @@ MaybeError Client::Run(bool isAutomatic) {
           PrintCards();
         } else if (msg.value() == "tricks") {
           std::cout << "Taken cards:\n";
+          std::ostringstream oss;
           for (size_t i = 0; i < taken.size(); i += 4) {
-            std::ostringstream oss;
             std::array<Card, 4> trick;
             std::copy_n(taken.begin() + i, 4, trick.begin());
             Utilities::StrList(oss, trick.begin(), trick.end());
-            std::cout << oss.str() << '\n';
+            oss << '\n';
           }
+          std::cout << oss.str();
         } else if (msg.value().compare(0, 1, "!") == 0) {
           auto m = Message::Deserialize(msg.value());
           if (m != nullptr) {
@@ -180,7 +187,7 @@ void Client::PrintUserStr(const Message *msg) const {
 }
 
 void Client::PrintHelp() const {
-  std::cout << "!<card> - play a card, for example \"!AS\""
+  std::cout << "!<card> - play a card, for example \"!AS\"\n"
             << "cards – show cards on hand\n"
             << "tricks - show taken cards\n";
 }
@@ -233,7 +240,8 @@ MaybeError Client::HandleServerMessage(std::string msg) {
     } else if (msg.compare(0, 5, "TRICK") == 0) {
       const MessageTrick &msgTrick = dynamic_cast<MessageTrick &>(*m);
       isMsgTrick = true;
-      if (nextTrickNumber == msgTrick.GetTrickNumber()) {
+      if (nextTrickNumber.has_value()
+          && nextTrickNumber.value() == msgTrick.GetTrickNumber()) {
         if (pollfds.at(kUserId).fd == -1) {
           std::optional<Card> choice;
           int colorBeginIndex = 0;
@@ -272,7 +280,7 @@ MaybeError Client::HandleServerMessage(std::string msg) {
 
 MaybeError Client::PlayTrick(Card card) {
   if (!nextTrickNumber.has_value()) {
-    return Game::NotStarted("Client::PlayTrick");
+    return Game::ErrorNotStarted("Client::PlayTrick");
   }
 
   std::array<Card, 1> tmp = {card};
