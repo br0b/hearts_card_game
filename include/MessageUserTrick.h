@@ -4,7 +4,7 @@
 #include "Card.h"
 #include "Message.h"
 
-class MessagePlayTrick final : public Message {
+class MessageUserTrick final : public Message {
  public:
   void SetCard(Card card_);
 

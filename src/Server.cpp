@@ -26,7 +26,6 @@ Server::Server() : trickDeadline(maxTimeout) {}
 
 void Server::Configure(std::vector<DealConfig> deals_,
                        std::optional<std::chrono::seconds> maxTimeout_) {
-  signal(SIGPIPE, SIG_IGN);
   deals = std::move(deals_);
   // The vector will be used as a stack, so it is initially reversed.
   std::reverse(deals.begin(), deals.end());
@@ -37,6 +36,10 @@ void Server::Configure(std::vector<DealConfig> deals_,
 }
 
 MaybeError Server::Listen(std::optional<in_port_t> port) {
+  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+    return Error::FromErrno("signal");
+  }
+
   return connectionStore.Listen(port);
 }
 

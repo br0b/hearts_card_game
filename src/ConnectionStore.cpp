@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
-#include <fcntl.h>
 #include <iostream>
 #include <memory>
 #include <netinet/in.h>
@@ -257,10 +256,6 @@ MaybeError ConnectionStore::UpdateListening(std::optional<int> &opened) {
     oss << "Socket " << fd << " has size bigger than sockaddr_storage";
     return std::make_unique<Error>("ConnectionStore::UpdateListening",
                                    oss.str());
-  }
-
-  if (fcntl(fd, F_SETFD, O_NONBLOCK) != 0) {
-    return Error::FromErrno("ConnectionStore::UpdateListening");
   }
 
   if (error = Push(fd); error.has_value()) {

@@ -34,7 +34,7 @@ ServerConfig::FromMainArgs(int argc, char *argv[]) {
         }
         break;
       default:
-        return Error::InvalidArg("ServerConfig::FromMainArgs", optarg);
+        return Error::InvalidArg("ServerConfig::FromMainArgs", "optarg");
     }
   }
 

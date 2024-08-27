@@ -1,9 +1,10 @@
-#include "Message.h"
 #include <memory>
+
+#include "Message.h"
 #include "MessageBusy.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
-#include "MessagePlayTrick.h"
+#include "MessageUserTrick.h"
 #include "MessagePoints.h"
 #include "MessageTaken.h"
 #include "MessageTrick.h"
@@ -31,7 +32,7 @@ std::unique_ptr<Message> Message::Deserialize(std::string str) {
   } else if (str.compare(0, 5, "WRONG") == 0) {
     msg = std::make_unique<MessageWrong>();
   } else if (str.compare(0, 1, "!") == 0) {
-    msg = std::make_unique<MessagePlayTrick>();
+    msg = std::make_unique<MessageUserTrick>();
   }
 
   if (msg.get() == nullptr || msg->Parse(str).has_value()) {

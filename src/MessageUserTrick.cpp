@@ -1,27 +1,27 @@
 #include <sstream>
 
 #include "Hand.h"
-#include "MessagePlayTrick.h"
+#include "MessageUserTrick.h"
 
-void MessagePlayTrick::SetCard(Card card_) {
+void MessageUserTrick::SetCard(Card card_) {
   card = card_;
 }
 
-Card MessagePlayTrick::GetCard() const {
+Card MessageUserTrick::GetCard() const {
   return card;
 }
 
-std::string MessagePlayTrick::Str() const {
+std::string MessageUserTrick::Str() const {
   std::ostringstream oss;
   oss << "!" << card;
   return oss.str();
 }
 
-std::optional<std::string> MessagePlayTrick::UserStr() const {
+std::optional<std::string> MessageUserTrick::UserStr() const {
   return std::nullopt;
 }
 
-MaybeError MessagePlayTrick::SetAfterMatch(std::smatch match) {
+MaybeError MessageUserTrick::SetAfterMatch(std::smatch match) {
   Hand hand;
   hand.Parse(match[1]);
   if (hand.Get().size() != 1) {
@@ -32,7 +32,7 @@ MaybeError MessagePlayTrick::SetAfterMatch(std::smatch match) {
   return std::nullopt;
 }
 
-std::string MessagePlayTrick::GetPattern() const {
+std::string MessageUserTrick::GetPattern() const {
   return "^!((?:10|[2-9]|[JQKA])[CDHS])$";
 }
 

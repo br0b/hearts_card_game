@@ -46,7 +46,7 @@ ClientConfig::FromMainArgs(int argc, char *argv[]) {
         isAutomatic = true;
         break;
       default:
-        return Error::InvalidArg("ClientConfig::FromMainArgs", optarg);
+        return Error::InvalidArg("ClientConfig::FromMainArgs", "optarg");
     }
   }
 

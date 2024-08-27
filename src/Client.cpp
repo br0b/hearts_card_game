@@ -1,7 +1,7 @@
-#include <fcntl.h>
 #include <memory>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <sstream>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -13,7 +13,7 @@
 #include "MessageBuffer.h"
 #include "MessageDeal.h"
 #include "MessageIam.h"
-#include "MessagePlayTrick.h"
+#include "MessageUserTrick.h"
 #include "MessageTaken.h"
 #include "MessageTrick.h"
 #include "TrickNumber.h"
@@ -45,11 +45,10 @@ MaybeError Client::Connect(
   }
 
   pollfds.front() = {s.fd.value(), POLLIN, 0};
-
-  if (fcntl(pollfds.at(kServerId).fd, F_SETFD, O_NONBLOCK) != 0) {
-    return Error::FromErrno("ConnectionStore::UpdateListening");
-  }
   
+  if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+    return Error::FromErrno("signal");
+  }
   return server.SetSocket(s.fd.value());
 }
 
@@ -103,12 +102,12 @@ MaybeError Client::Run(bool isAutomatic) {
           auto m = Message::Deserialize(msg.value());
           if (m != nullptr) {
             try {
-              const MessagePlayTrick &msgPlay
-                = dynamic_cast<MessagePlayTrick &>(*m);
+              const MessageUserTrick &msgUser
+                = dynamic_cast<MessageUserTrick &>(*m);
               if (!isUserTrickNeeded) {
                 std::cout << "The server hasn't sent a trick message yet.\n";
               } else {
-                if (error = PlayTrick(msgPlay.GetCard()); error.has_value()) {
+                if (error = PlayTrick(msgUser.GetCard()); error.has_value()) {
                   return error;
                 }
                 isUserTrickNeeded = false;

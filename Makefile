@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -I$(INCLUDE_DIR) -Wall -Wextra -Wpedantic -std=c++20 -g
+CXXFLAGS = -I$(INCLUDE_DIR) -Wall -Wextra -Wpedantic -std=c++20 -O2
 
 # Project directories
 SRC_DIR = src
@@ -51,7 +51,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 clean:
-	rm -rf $(BUILD_DIR)/*.o $(TARGET_SERVER) $(TARGET_CLIENT)
+	rm -rf $(BUILD_DIR) $(TARGET_SERVER) $(TARGET_CLIENT)
 
 .PHONY: all clean
 

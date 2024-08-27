@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -26,6 +27,10 @@ MaybeError MessageBuffer::SetSocket(int fd_) {
   localAddress = std::move(lAddr);
   remoteAddress = std::move(rAddr);
   isOpen = true;
+
+  if (fcntl(fd_, F_SETFD, O_NONBLOCK) != 0) {
+    return Error::FromErrno("ConnectionStore::UpdateListening");
+  }
   return std::nullopt;
 }
 
@@ -48,6 +53,12 @@ MaybeError MessageBuffer::Receive() {
   int ret = read(fd.value(), buffer.data(), sizeof(buffer));
   
   if (ret == -1) {
+    if (errno == EAGAIN) {
+      return std::nullopt;
+    } else if (errno == ECONNRESET) {
+      isOpen = false;
+      return std::nullopt;
+    }
     return Error::FromErrno("read");
   }
 
@@ -91,7 +102,9 @@ MaybeError MessageBuffer::Send() {
   int ret = write(fd.value(), buffer.data(), len);
 
   if (ret == -1) {
-    if (errno == EPIPE) {
+    if (errno == EAGAIN) {
+      return std::nullopt;
+    } else if (errno == EPIPE || errno == ECONNRESET) {
       // Disconnect
       isOpen = false;
       return std::nullopt;
