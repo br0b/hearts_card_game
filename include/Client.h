@@ -3,7 +3,7 @@
 
 #include <memory>
 #include <netdb.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <optional>
 #include <unistd.h>
 #include <unordered_set>

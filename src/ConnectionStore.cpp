@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <optional>
 #include <sstream>
-#include <sys/poll.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "ConnectionStore.h"
