@@ -68,23 +68,18 @@ MaybeError MessageBuffer::Receive() {
     return std::nullopt;
   }
 
-  // Keep the null byte.
-  incoming.insert(incoming.end() - 1, buffer.begin(), buffer.begin() + ret);
-
+  incoming.insert(incoming.end(), buffer.begin(), buffer.begin() + ret);
   return std::nullopt;
 }
 
 std::optional<std::string> MessageBuffer::PopMessage() {
-  auto len = GetFirstMsgLength();
-  
-  if (!len.has_value()) {
+  auto sep = std::search(incoming.begin(), incoming.end(),
+		         separator.begin(), separator.end());
+  if (sep == incoming.end()) {
     return std::nullopt;
   }
-
-  std::string msg;
-  msg.insert(msg.begin(), incoming.begin(), incoming.begin() + len.value());
-  incoming.erase(incoming.begin(),
-                 incoming.begin() + len.value() + separator.size());
+  std::string msg(incoming.begin(), sep);
+  incoming.erase(incoming.begin(), sep + separator.size());
   if (isReportingOn) {
     ReportReceived(msg + separator);
   }
@@ -127,7 +122,7 @@ void MessageBuffer::PushMessage(const std::string &msg) {
 }
 
 void MessageBuffer::ClearIncoming() {
-  incoming.erase(incoming.begin(), incoming.end() - 1);
+  incoming.clear();
 }
 
 void MessageBuffer::DisableReporting() {
@@ -161,15 +156,6 @@ void MessageBuffer::ReportMessage(const std::string &msg,
   oss << "[" << srcAddr << "," << dstAddr << ","
       << Utilities::GetTimeStr() << "] " << msg;
   std::cout << oss.str();
-}
-
-std::optional<size_t> MessageBuffer::GetFirstMsgLength() const {
-  const char *cFind = strstr(&incoming[0], separator.c_str());
-  if (cFind == NULL) {
-    return std::nullopt;
-  }
-  
-  return static_cast<size_t>(cFind - &incoming[0]);
 }
 
 MaybeError MessageBuffer::AssertIsOpen() const {

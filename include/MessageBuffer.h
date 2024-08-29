@@ -44,15 +44,12 @@ class MessageBuffer {
   void ReportMessage(const std::string &msg, const std::string &srcAddr,
                      const std::string &dstAddr);
 
-  // Length without seperator.
-  [[nodiscard]] std::optional<size_t> GetFirstMsgLength() const;
   [[nodiscard]] MaybeError AssertIsOpen() const;
 
   std::optional<int> fd;
   std::optional<std::string> localAddress;
   std::optional<std::string> remoteAddress;
-  // Always ends with a null byte to make separator search easier.
-  std::deque<char> incoming{'\0'};
+  std::deque<char> incoming;
   std::deque<char> outgoing;
   std::array<char, 4096> &buffer;
   std::string separator = "\r\n";
