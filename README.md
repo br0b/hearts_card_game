@@ -1,3 +1,6 @@
+
+![out](https://github.com/user-attachments/assets/b7f8cdde-b574-4128-a92a-230753246c98)
+
 A CLI implementation of the Hearts card game written in C++. Uses the server-client architecture with TCP/IP for communication.
 Supports both IPv4 and IPv6.
 
